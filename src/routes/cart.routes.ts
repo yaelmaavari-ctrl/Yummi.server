@@ -1,13 +1,33 @@
 import { Router } from 'express';
+import { cartController } from '../controllers/cart.controller';
+import { authenticate } from '../middlewares/auth.middleware';
+import { validate } from '../middlewares/validate.middleware';
+import {
+  addItemSchema,
+  updateItemParamsSchema,
+  updateItemSchema,
+} from '../validations/cart.validation';
 
 const router = Router();
 
 /**
  * Cart routes. Owner: Developer B.
- * TODO: wire get/addItem/updateItem/removeItem/clear to cartController.
  */
-router.get('/', (_req, res) => {
-  res.status(501).json({ success: false, message: 'Cart endpoints not implemented yet' });
-});
+router.get('/',  cartController.getCart);
+router.post('/items', authenticate, validate(addItemSchema), cartController.addItem);
+router.patch(
+  '/items/:productId',
+  authenticate,
+  validate(updateItemParamsSchema, 'params'),
+  validate(updateItemSchema),
+  cartController.updateItem
+);
+
+router.delete(
+  '/items/:productId',
+  authenticate,
+  validate(updateItemParamsSchema, 'params'),
+  cartController.removeItem
+);
 
 export default router;

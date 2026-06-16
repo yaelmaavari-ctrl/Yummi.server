@@ -6,24 +6,37 @@ import { UserRole } from '../types';
  *
  * A single user may own multiple roles (CUSTOMER, KITCHEN, DELIVERY, ADMIN),
  * but only one role is active per session (encoded in the JWT as `activeRole`).
- *
- * TODO (Developer A): define the full schema, e.g.:
- *   - fullName: string
- *   - email: string (unique, lowercased)
- *   - passwordHash: string (hashed with bcryptjs)
- *   - phone: string
- *   - roles: UserRole[]
- *   - defaultAddress: { city, street, houseNumber }
- *   - isActive: boolean
+ * Passwords are stored as a bcryptjs hash and excluded from query results by
+ * default (select: false). To compare passwords, explicitly select the field.
  */
 export interface IUser extends Document {
-  // TODO: define fields
+  fullName: string;
+  email: string;
+  passwordHash: string;
   roles: UserRole[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const userSchema = new Schema<IUser>(
   {
-    // TODO: define schema fields
+    fullName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    passwordHash: {
+      type: String,
+      required: true,
+      select: false,
+    },
     roles: {
       type: [String],
       enum: Object.values(UserRole),

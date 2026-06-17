@@ -7,8 +7,8 @@ import { OrderStatus, OrderType, PaymentStatus } from '../types';
  * Items are SNAPSHOTS of product name/price at purchase time so that
  * historical orders remain correct even if products are later modified.
  *
- * Lifecycle: RECEIVED -> APPROVED -> IN_PREPARATION -> READY -> COMPLETED
- *            (CANCELLED only allowed while status is RECEIVED).
+ * Lifecycle: PENDING -> PREPARING -> READY -> OUT_FOR_DELIVERY -> DELIVERED
+ *            (CANCELLED allowed at any point before DELIVERED).
  */
 export interface IOrderItem {
   productId: Types.ObjectId;
@@ -55,7 +55,7 @@ const orderSchema = new Schema<IOrder>(
     status: {
       type: String,
       enum: Object.values(OrderStatus),
-      default: OrderStatus.RECEIVED,
+      default: OrderStatus.PENDING,
     },
     orderType: {
       type: String,

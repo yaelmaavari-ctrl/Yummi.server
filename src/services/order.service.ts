@@ -1,6 +1,6 @@
 import { Cart } from '../models/cart.model';
 import { Order, IOrder } from '../models/order.model';
-import { OrderType } from '../types';
+import { OrderStatus, OrderType } from '../types';
 import { ApiError } from '../utils/ApiError';
 import { cartService } from './cart.service';
 
@@ -60,6 +60,23 @@ export const orderService = {
     });
 
     await cartService.clearCart(userId);
+
+    return order;
+  },
+
+  /**
+   * Updates the status of an order identified by orderId.
+   */
+  async updateStatus(orderId: string, status: OrderStatus): Promise<IOrder> {
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      { status },
+      { new: true, runValidators: true }
+    );
+
+    if (!order) {
+      throw ApiError.notFound('Order not found');
+    }
 
     return order;
   },

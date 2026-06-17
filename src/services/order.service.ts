@@ -24,6 +24,12 @@ interface ListOrdersOptions {
   sort?: 'latest' | 'oldest';
 }
 
+/** Kitchen queue: new orders (Pending) and actively being prepared (Preparing). */
+const KITCHEN_QUEUE_STATUSES: OrderStatus[] = [
+  OrderStatus.RECEIVED,
+  OrderStatus.IN_PREPARATION,
+];
+
 /**
  * Order service - business logic. Owner: Developer B.
  * Reads/writes the Order model.
@@ -49,6 +55,13 @@ export const orderService = {
     }
 
     return Order.find(filter).sort({ createdAt: sort === 'oldest' ? 1 : -1 });
+  },
+
+  /**
+   * Kitchen dashboard: orders awaiting or in preparation, oldest first (FIFO).
+   */
+  async listKitchenOrders(): Promise<IOrder[]> {
+    return Order.find({ status: { $in: KITCHEN_QUEUE_STATUSES } }).sort({ createdAt: 1 });
   },
 
   /**

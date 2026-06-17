@@ -1,6 +1,6 @@
 import { Cart } from '../models/cart.model';
 import { Order, IOrder } from '../models/order.model';
-import { OrderType } from '../types';
+import { OrderStatus, OrderType, UserRole } from '../types';
 import { ApiError } from '../utils/ApiError';
 import { cartService } from './cart.service';
 
@@ -17,11 +17,40 @@ interface PopulatedProduct {
   isDeleted: boolean;
 }
 
+interface ListOrdersOptions {
+  userId: string;
+  activeRole: UserRole;
+  status?: OrderStatus;
+  sort?: 'latest' | 'oldest';
+}
+
 /**
  * Order service - business logic. Owner: Developer B.
  * Reads/writes the Order model.
  */
 export const orderService = {
+  /**
+   * Lists orders. Admins see all orders; other users see only their own.
+   */
+  async listOrders({
+    userId,
+    activeRole,
+    status,
+    sort = 'latest',
+  }: ListOrdersOptions): Promise<IOrder[]> {
+    const filter: Record<string, unknown> = {};
+
+    if (activeRole !== UserRole.ADMIN) {
+      filter.userId = userId;
+    }
+
+    if (status) {
+      filter.status = status;
+    }
+
+    return Order.find(filter).sort({ createdAt: sort === 'oldest' ? 1 : -1 });
+  },
+
   /**
    * Creates an order from the authenticated user's current cart.
    * Snapshots product name/price at purchase time, then clears the cart.

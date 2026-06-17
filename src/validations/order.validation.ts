@@ -1,5 +1,5 @@
 import Joi from 'joi';
-import { OrderType } from '../types';
+import { OrderStatus, OrderType } from '../types';
 
 /**
  * Order validation schemas (Joi). Owner: Developer B.
@@ -9,6 +9,11 @@ export const placeOrderSchema = Joi.object({
   orderType: Joi.string()
     .valid(...Object.values(OrderType))
     .default(OrderType.PICKUP),
+});
+
+export const listOrdersQuerySchema = Joi.object({
+  status: Joi.string().valid(...Object.values(OrderStatus)),
+  sort: Joi.string().valid('latest', 'oldest').default('latest'),
 });
 
 export const cancelOrderSchema = Joi.object({});

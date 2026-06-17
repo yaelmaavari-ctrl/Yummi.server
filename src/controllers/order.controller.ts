@@ -39,6 +39,16 @@ export const orderController = {
     res.status(200).json({ success: true, data: orders });
   }),
 
+  getUserOrderHistory: asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw ApiError.unauthorized('Authentication required');
+    }
+
+    const orders = await orderService.getUserOrderHistory(req.user.userId);
+
+    res.status(200).json({ success: true, data: orders });
+  }),
+
   createOrder: asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) {
       throw ApiError.unauthorized('Authentication required');

@@ -17,6 +17,7 @@ router.get(
   authorize(UserRole.KITCHEN, UserRole.ADMIN),
   orderController.listKitchenOrders
 );
+router.get('/me', authenticate, orderController.getUserOrderHistory);
 router.get('/', authenticate, validate(listOrdersQuerySchema, 'query'), orderController.listOrders);
 router.post('/', authenticate, validate(placeOrderSchema), orderController.createOrder);
 

@@ -65,6 +65,13 @@ export const orderService = {
   },
 
   /**
+   * Order history for the authenticated user only, newest first.
+   */
+  async getUserOrderHistory(userId: string): Promise<IOrder[]> {
+    return Order.find({ userId }).sort({ createdAt: -1 });
+  },
+
+  /**
    * Creates an order from the authenticated user's current cart.
    * Snapshots product name/price at purchase time, then clears the cart.
    */

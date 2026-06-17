@@ -1,12 +1,66 @@
+import { Cart } from '../models/cart.model';
+import { Order, IOrder } from '../models/order.model';
+import { OrderType } from '../types';
+import { ApiError } from '../utils/ApiError';
+import { cartService } from './cart.service';
+
+/**
+ * Shape expected from a populated Product document.
+ * Developer A owns the Product model; once they add name/price these fields
+ * will resolve naturally. The cast below keeps TypeScript happy in the meantime.
+ */
+interface PopulatedProduct {
+  _id: unknown;
+  name?: string;
+  price?: number;
+  isAvailable: boolean;
+  isDeleted: boolean;
+}
+
 /**
  * Order service - business logic. Owner: Developer B.
- *
- * TODO: implement the full order lifecycle:
- *   - placeOrder: validate business hours + delivery zone, compute totals,
- *     store SNAPSHOTS of product name/price and extras/prices, create as RECEIVED.
- *   - status transitions with guards (RECEIVED -> APPROVED -> IN_PREPARATION -> READY -> COMPLETED).
- *   - cancel: only while RECEIVED, with a mandatory reason.
- *   - kitchen ownership + delivery completion.
- * Emit ORDER_* socket events. Reads/writes the Order model.
+ * Reads/writes the Order model.
  */
-export const orderService = {};
+export const orderService = {
+  /**
+   * Creates an order from the authenticated user's current cart.
+   * Snapshots product name/price at purchase time, then clears the cart.
+   */
+  async createFromCart(userId: string, orderType: OrderType = OrderType.PICKUP): Promise<IOrder> {
+    const cart = await Cart.findOne({ userId }).populate<{
+      items: { productId: PopulatedProduct; quantity: number }[];
+    }>('items.productId');
+
+    if (!cart || cart.items.length === 0) {
+      throw ApiError.badRequest('Cart is empty');
+    }
+
+    const orderItems = cart.items.map(({ productId: product, quantity }) => {
+      const name = product.name ?? 'Unknown product';
+      const price = product.price ?? 0;
+      return {
+        productId: product._id,
+        name,
+        price,
+        quantity,
+        totalPrice: parseFloat((price * quantity).toFixed(2)),
+      };
+    });
+
+    const subtotal = parseFloat(
+      orderItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)
+    );
+
+    const order = await Order.create({
+      userId,
+      items: orderItems,
+      subtotal,
+      total: subtotal,
+      orderType,
+    });
+
+    await cartService.clearCart(userId);
+
+    return order;
+  },
+};

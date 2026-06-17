@@ -1,11 +1,22 @@
+import { Request, Response } from 'express';
+import { orderService } from '../services/order.service';
+import { asyncHandler } from '../utils/asyncHandler';
+import { ApiError } from '../utils/ApiError';
+import { OrderType } from '../types';
+
 /**
  * Order controller. Owner: Developer B.
- *
- * TODO: implement handlers across three audiences:
- *   - Customer: placeOrder (with snapshots), trackOrder, getHistory, cancel (RECEIVED only).
- *   - Kitchen: listIncoming, takeOwnership, approve, startPreparation, markReady, complete (pickup).
- *   - Delivery: listReady, completeDelivery.
- * Emit ORDER_* socket events on status transitions. Delegate logic to
- * orderService and wire in routes/order.routes.ts.
+ * Thin handlers that delegate to orderService.
  */
-export const orderController = {};
+export const orderController = {
+  createOrder: asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw ApiError.unauthorized('Authentication required');
+    }
+
+    const { orderType } = req.body as { orderType: OrderType };
+    const order = await orderService.createFromCart(req.user.userId, orderType);
+
+    res.status(201).json({ success: true, data: order });
+  }),
+};

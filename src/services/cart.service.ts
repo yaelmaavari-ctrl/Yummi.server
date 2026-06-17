@@ -81,4 +81,11 @@ export const cartService = {
     await cart.save();
     return cart;
   },
+
+  /**
+   * Empties all items from the user's cart. Used after order creation.
+   */
+  async clearCart(userId: string): Promise<void> {
+    await Cart.findOneAndUpdate({ userId }, { items: [] });
+  },
 };

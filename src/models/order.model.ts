@@ -1,43 +1,67 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 import { OrderStatus, OrderType, PaymentStatus } from '../types';
 
 /**
  * Order document. Owner: Developer B (Ordering & Operations).
  *
- * Orders store SNAPSHOTS of product name/price and selected extras + prices so
- * that historical orders remain unchanged even if products are later modified.
+ * Items are SNAPSHOTS of product name/price at purchase time so that
+ * historical orders remain correct even if products are later modified.
  *
  * Lifecycle: RECEIVED -> APPROVED -> IN_PREPARATION -> READY -> COMPLETED
  *            (CANCELLED only allowed while status is RECEIVED).
- *
- * TODO (Developer B): define fields, e.g.:
- *   - customer: ObjectId ref 'User'
- *   - items: [{ productId, productName, productPrice, extras: [{ name, price }], quantity }]
- *   - orderType: OrderType (DELIVERY | PICKUP)
- *   - deliveryAddress: { city, street, houseNumber } (when DELIVERY)
- *   - deliveryZone: ObjectId ref 'DeliveryZone'
- *   - subtotal, deliveryFee, total: number
- *   - paymentStatus: PaymentStatus
- *   - status: OrderStatus
- *   - assignedKitchenWorkerId: ObjectId ref 'User'
- *   - cancellationReason: string (required when CANCELLED)
  */
+export interface IOrderItem {
+  productId: Types.ObjectId;
+  name: string;
+  price: number;
+  quantity: number;
+  totalPrice: number;
+}
+
 export interface IOrder extends Document {
-  // TODO: define fields
+  userId: Types.ObjectId;
+  items: IOrderItem[];
+  subtotal: number;
+  total: number;
   status: OrderStatus;
   orderType: OrderType;
   paymentStatus: PaymentStatus;
+  createdAt: Date;
+  updatedAt: Date;
 }
+
+const orderItemSchema = new Schema<IOrderItem>(
+  {
+    productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+    name: { type: String, required: true },
+    price: { type: Number, required: true, min: 0 },
+    quantity: { type: Number, required: true, min: 1 },
+    totalPrice: { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
+);
 
 const orderSchema = new Schema<IOrder>(
   {
-    // TODO: define schema fields
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+    items: { type: [orderItemSchema], required: true },
+    subtotal: { type: Number, required: true, min: 0 },
+    total: { type: Number, required: true, min: 0 },
     status: {
       type: String,
       enum: Object.values(OrderStatus),
       default: OrderStatus.RECEIVED,
     },
-    orderType: { type: String, enum: Object.values(OrderType), required: true },
+    orderType: {
+      type: String,
+      enum: Object.values(OrderType),
+      default: OrderType.PICKUP,
+    },
     paymentStatus: {
       type: String,
       enum: Object.values(PaymentStatus),

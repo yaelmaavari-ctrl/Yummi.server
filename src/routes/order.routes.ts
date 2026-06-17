@@ -1,14 +1,14 @@
 import { Router } from 'express';
+import { orderController } from '../controllers/order.controller';
+import { authenticate } from '../middlewares/auth.middleware';
+import { validate } from '../middlewares/validate.middleware';
+import { placeOrderSchema } from '../validations/order.validation';
 
 const router = Router();
 
 /**
  * Order routes. Owner: Developer B.
- * TODO: wire customer (place/track/history/cancel), kitchen (take/approve/prepare/ready/complete),
- * and delivery (list-ready/complete) endpoints to orderController.
  */
-router.get('/', (_req, res) => {
-  res.status(501).json({ success: false, message: 'Order endpoints not implemented yet' });
-});
+router.post('/', authenticate, validate(placeOrderSchema), orderController.createOrder);
 
 export default router;

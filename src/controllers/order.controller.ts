@@ -12,7 +12,7 @@ function assertAuthenticated(req: Request): asserts req is Request & { user: Non
 
 function assertEmployee(req: Request): void {
   assertAuthenticated(req);
-  if ((req.user.activeRole as string) !== 'employee') {
+  if (req.user.activeRole !== 'KITCHEN') {
     throw ApiError.forbidden('You do not have permission to perform this action');
   }
 }

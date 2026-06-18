@@ -1,0 +1,101 @@
+---
+description: Yummi backend architecture — stack, structure, and implementation workflow
+alwaysApply: true
+---
+
+# Yummi Architecture Rules
+
+Food Ordering Management System — follow these rules for all backend work.
+
+## Before Implementing Any Feature
+
+Always analyze existing code first. Before generating code:
+
+1. Read `DIVISION_OF_LABOR.md`.
+2. Analyze the existing implementation.
+3. Explain the implementation plan.
+4. List affected files.
+5. Only then generate code.
+
+Check whether similar functionality already exists. Avoid duplicate models, services, controllers, and routes.
+
+## Stack
+
+- Node.js + Express
+- TypeScript
+- MongoDB Atlas + Mongoose
+- Joi validation
+
+## Project Structure
+
+```
+src/
+├── config/
+├── controllers/
+├── services/
+├── models/
+├── routes/
+├── validations/
+├── middlewares/
+├── sockets/
+├── utils/
+├── types/
+```
+
+## Layer Responsibilities
+
+### Controllers
+
+- Remain thin — no business logic.
+- Call services only.
+- Use `asyncHandler`.
+
+```typescript
+// ✅ GOOD
+export const getMe = asyncHandler(async (req, res) => {
+  const user = await authService.getMe(req.user!.userId);
+  res.json({ success: true, data: user });
+});
+```
+
+### Services
+
+- Contain all business logic.
+- Handle validation beyond Joi when needed.
+- Throw `ApiError` for business failures.
+
+### Routes
+
+- Use `validate` middleware for Joi schemas.
+- Use `authenticate` where required.
+- Use `authorize` where required.
+
+### Validation
+
+- Use Joi schemas in dedicated files under `src/validations/`.
+
+## Database
+
+- Use Mongoose models with `timestamps: true` on all collections.
+- Reuse existing enums (`src/types/index.ts`), utilities, and middlewares.
+
+## Error Handling
+
+- Use centralized error handling — never return raw errors.
+- Throw and propagate `ApiError`.
+
+## Authorization
+
+- Always authorize using `activeRole` from the JWT/session.
+- Never authorize using the `roles` array directly.
+
+```typescript
+// ✅ GOOD — authorize(['ADMIN', 'MANAGER'])
+// ❌ BAD — checking req.user.roles.includes(...)
+```
+
+## Code Quality
+
+- Use `async/await`.
+- Avoid duplicate code across layers.
+- Match existing naming, imports, and patterns in neighboring files.

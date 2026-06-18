@@ -107,8 +107,14 @@ async function runTests(): Promise<void> {
   assert(unauth.status === 401, 'Unauthenticated list returns 401');
 
   const customerToken = await login(CUSTOMER_EMAIL, CUSTOMER_PASSWORD);
-  const customerDenied = await request('GET', '/categories', { token: customerToken });
-  assert(customerDenied.status === 403, 'Customer list returns 403');
+  const customerList = await request('GET', '/categories', { token: customerToken });
+  assert(customerList.status === 200, 'Customer list returns 200');
+
+  const customerCreate = await request('POST', '/categories', {
+    token: customerToken,
+    body: { name: 'Test Burgers' },
+  });
+  assert(customerCreate.status === 403, 'Customer create returns 403');
 
   const adminToken = await login(ADMIN_EMAIL, ADMIN_PASSWORD, UserRole.ADMIN);
 
@@ -156,7 +162,8 @@ async function runTests(): Promise<void> {
   const blockedCategory = await Category.create({ name: 'Test Blocked Delete' });
   await Product.create({
     name: 'Test Product For Delete Guard',
-    category: blockedCategory._id,
+    price: 9.99,
+    categories: [blockedCategory._id],
     isAvailable: true,
     isDeleted: false,
   });

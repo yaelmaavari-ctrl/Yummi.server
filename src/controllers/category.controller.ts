@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { categoryService } from '../services/category.service';
+import { productService } from '../services/product.service';
 import { asyncHandler } from '../utils/asyncHandler';
+import { UserRole } from '../types';
 
 const list = asyncHandler(async (_req: Request, res: Response) => {
   const categories = await categoryService.list();
@@ -27,10 +29,22 @@ const softDelete = asyncHandler(async (req: Request, res: Response) => {
   res.status(200).json({ success: true, data: { category } });
 });
 
+const listProducts = asyncHandler(async (req: Request, res: Response) => {
+  const includeUnavailable =
+    req.user!.activeRole === UserRole.ADMIN || req.user!.activeRole === UserRole.KITCHEN;
+
+  const products = await productService.listByCategory(req.params['id'] as string, {
+    includeUnavailable,
+  });
+
+  res.status(200).json({ success: true, data: { products } });
+});
+
 export const categoryController = {
   list,
   getById,
   create,
   update,
   softDelete,
+  listProducts,
 };

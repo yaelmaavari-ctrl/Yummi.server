@@ -114,7 +114,7 @@ async function softDelete(id: string): Promise<PublicCategory> {
   const category = await getActiveById(id);
 
   const activeProductCount = await Product.countDocuments({
-    category: id,
+    categories: id,
     isDeleted: false,
   });
 

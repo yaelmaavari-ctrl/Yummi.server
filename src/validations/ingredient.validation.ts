@@ -1,9 +1,24 @@
 import Joi from 'joi';
+import { IngredientStatus } from '../types';
 
-/**
- * Ingredient validation schemas (Joi). Owner: Developer A.
- *
- * TODO: define createIngredientSchema / updateStockSchema / setStatusSchema rules.
- */
-export const createIngredientSchema = Joi.object({});
-export const updateIngredientSchema = Joi.object({});
+export const createIngredientSchema = Joi.object({
+  name: Joi.string().trim().min(2).max(100).required(),
+  status: Joi.string()
+    .valid(...Object.values(IngredientStatus))
+    .optional()
+    .default(IngredientStatus.AVAILABLE),
+});
+
+export const updateIngredientSchema = Joi.object({
+  name: Joi.string().trim().min(2).max(100).required(),
+});
+
+export const setStatusSchema = Joi.object({
+  status: Joi.string()
+    .valid(...Object.values(IngredientStatus))
+    .required(),
+});
+
+export const ingredientIdParamSchema = Joi.object({
+  id: Joi.string().required(),
+});

@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
 /**
  * Product document. Owner: Developer A (Catalog).
@@ -19,14 +19,14 @@ import { Schema, model, Document } from 'mongoose';
  *   - isDeleted: boolean (soft delete flag)
  */
 export interface IProduct extends Document {
-  // TODO: define fields
+  category?: Types.ObjectId;
   isAvailable: boolean;
   isDeleted: boolean;
 }
 
 const productSchema = new Schema<IProduct>(
   {
-    // TODO: define schema fields
+    category: { type: Schema.Types.ObjectId, ref: 'Category' },
     isAvailable: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false },
   },

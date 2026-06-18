@@ -33,7 +33,7 @@ Food Ordering Management System — enforce these domain rules in services and v
 
 ## Ingredients
 
-- Managed manually by kitchen workers; quantity updates are manual.
+- Managed manually by kitchen workers; mark `TEMPORARILY_UNAVAILABLE` when an ingredient runs out.
 - Status: `AVAILABLE` | `TEMPORARILY_UNAVAILABLE` (`IngredientStatus` enum).
 - Shortage does **not** auto-disable products.
 

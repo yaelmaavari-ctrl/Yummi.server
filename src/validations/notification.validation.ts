@@ -2,7 +2,9 @@ import Joi from 'joi';
 
 /**
  * Notification validation schemas (Joi). Owner: Developer B.
- *
- * TODO: define markAsReadSchema rules (notificationId) if needed.
  */
+export const notificationIdParamsSchema = Joi.object({
+  id: Joi.string().hex().length(24).required(),
+});
+
 export const markAsReadSchema = Joi.object({});

@@ -3,6 +3,7 @@ import app from './app';
 import { env } from './config/env';
 import { connectDB, disconnectDB } from './config/db';
 import { initSocket } from './config/socket';
+import './models/product.model';
 
 async function bootstrap(): Promise<void> {
   await connectDB();

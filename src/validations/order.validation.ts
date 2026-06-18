@@ -9,6 +9,12 @@ export const placeOrderSchema = Joi.object({
   orderType: Joi.string()
     .valid(...Object.values(OrderType))
     .default(OrderType.PICKUP),
+  deliveryType: Joi.string().valid('PICKUP', 'DELIVERY').default('PICKUP'),
+  deliveryAddress: Joi.when('deliveryType', {
+    is: 'DELIVERY',
+    then: Joi.string().required(),
+    otherwise: Joi.string().optional(),
+  }),
 });
 
 export const orderIdParamsSchema = Joi.object({

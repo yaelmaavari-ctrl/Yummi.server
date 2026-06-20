@@ -456,15 +456,139 @@ All authenticated routes require: `Authorization: Bearer <token>`
 
 ## Business Hours — `/api/business-hours`
 
-> 🚧 Not implemented yet (returns 501).
+> All routes require JWT. Admin manages the schedule; all other roles can read it.
 
-**Planned endpoints:**
-- `GET /api/business-hours` — Get current schedule (all roles)
-- `PATCH /api/business-hours/weekly` — Update weekly schedule (ADMIN)
-  - Body: `{ weeklySchedule: [{ dayOfWeek, openTime, closeTime, isClosed }] }`
-- `POST /api/business-hours/special-days` — Add special day (ADMIN)
-  - Body: `{ date, label, isClosed, openTime?, closeTime? }`
-- `DELETE /api/business-hours/special-days/:date` — Remove special day (ADMIN)
+---
+
+### GET `/api/business-hours`
+**Auth:** JWT  
+**Roles:** `CUSTOMER`, `KITCHEN`, `DELIVERY`, `ADMIN`  
+**Body:** None  
+**Returns:** The singleton business-hours document with the full weekly schedule and all special-day overrides.
+
+```json
+{
+  "success": true,
+  "data": {
+    "businessHours": {
+      "id": "...",
+      "weeklySchedule": [
+        { "dayOfWeek": 0, "openTime": "09:00", "closeTime": "22:00", "isClosed": true },
+        { "dayOfWeek": 1, "openTime": "09:00", "closeTime": "22:00", "isClosed": false }
+      ],
+      "specialDays": [
+        { "date": "2026-12-25", "label": "Christmas", "isClosed": true }
+      ],
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  }
+}
+```
+
+---
+
+### GET `/api/business-hours/is-open`
+**Auth:** JWT  
+**Roles:** `CUSTOMER`, `KITCHEN`, `DELIVERY`, `ADMIN`  
+**Body:** None  
+**Returns:** Whether the business is currently open, the reason, current server time, and today's effective schedule entry.  
+**Note:** Special-day overrides take precedence over the weekly schedule.
+
+```json
+{
+  "success": true,
+  "data": {
+    "isOpen": true,
+    "reason": "Open (09:00–22:00)",
+    "currentTime": "14:32",
+    "todaySchedule": { "dayOfWeek": 6, "openTime": "09:00", "closeTime": "22:00", "isClosed": false }
+  }
+}
+```
+
+---
+
+### PUT `/api/business-hours/weekly-schedule`
+**Auth:** JWT  
+**Roles:** `ADMIN`  
+**Body:** Full replacement of all 7 day entries. Every `dayOfWeek` (0–6) must appear exactly once.
+
+```json
+{
+  "weeklySchedule": [
+    { "dayOfWeek": 0, "openTime": "10:00", "closeTime": "20:00", "isClosed": true },
+    { "dayOfWeek": 1, "openTime": "09:00", "closeTime": "22:00", "isClosed": false },
+    { "dayOfWeek": 2, "openTime": "09:00", "closeTime": "22:00", "isClosed": false },
+    { "dayOfWeek": 3, "openTime": "09:00", "closeTime": "22:00", "isClosed": false },
+    { "dayOfWeek": 4, "openTime": "09:00", "closeTime": "22:00", "isClosed": false },
+    { "dayOfWeek": 5, "openTime": "09:00", "closeTime": "22:00", "isClosed": false },
+    { "dayOfWeek": 6, "openTime": "10:00", "closeTime": "20:00", "isClosed": false }
+  ]
+}
+```
+**Returns:** Updated business-hours document.  
+**Errors:** `400` if not exactly 7 entries or duplicate `dayOfWeek`; `openTime`/`closeTime` must be `HH:mm`.
+
+---
+
+### POST `/api/business-hours/special-days`
+**Auth:** JWT  
+**Roles:** `ADMIN`  
+**Body:** Adds or replaces a special-day override for the given date or date range.
+
+Single closed day:
+```json
+{
+  "date": "2026-12-25",
+  "label": "Christmas",
+  "isClosed": true
+}
+```
+Date range — entire period uses the same rule (e.g. a week-long holiday):
+```json
+{
+  "date": "2026-12-24",
+  "endDate": "2026-12-26",
+  "label": "Christmas Holiday",
+  "isClosed": true
+}
+```
+Range with modified hours (e.g. New Year's Eve):
+```json
+{
+  "date": "2026-12-31",
+  "endDate": "2026-12-31",
+  "label": "New Year's Eve",
+  "isClosed": false,
+  "openTime": "10:00",
+  "closeTime": "18:00"
+}
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `date` | `YYYY-MM-DD` | Yes | Start date. Also acts as the unique key for this entry. |
+| `endDate` | `YYYY-MM-DD` | No | Inclusive end date. Must be ≥ `date`. Omit for a single day. |
+| `label` | `string` | Yes | Human-readable name (e.g. `"Christmas"`) |
+| `isClosed` | `boolean` | Yes | |
+| `openTime` | `HH:mm` | When `isClosed: false` | |
+| `closeTime` | `HH:mm` | When `isClosed: false` | |
+
+**Note:** `openTime` and `closeTime` are **required** when `isClosed` is `false`. The same hours apply for every day within the range.  
+**Note:** `isOpenNow` checks if today's date falls within `[date, endDate]`. If two entries would overlap, the first match wins (sorted by `date` ascending).  
+**Returns:** Updated business-hours document.  
+**Errors:** `400` if date format is wrong, `endDate < date`, or `openTime`/`closeTime` missing when open.
+
+---
+
+### DELETE `/api/business-hours/special-days/:date`
+**Auth:** JWT  
+**Roles:** `ADMIN`  
+**Params:** `date` — `YYYY-MM-DD` — the **start date** of the entry to remove (whether it was a single day or a range)  
+**Body:** None  
+**Returns:** Updated business-hours document (special day removed).  
+**Errors:** `400` if date format is wrong; `404` if no entry with that start date exists.
 
 ---
 

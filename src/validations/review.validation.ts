@@ -1,8 +1,11 @@
 import Joi from 'joi';
 
-/**
- * Review validation schemas (Joi). Owner: Developer A.
- *
- * TODO: define createReviewSchema rules (orderId, rating 1-5, comment).
- */
-export const createReviewSchema = Joi.object({});
+export const createReviewSchema = Joi.object({
+  orderId: Joi.string().required(),
+  rating: Joi.number().integer().min(1).max(5).required(),
+  comment: Joi.string().trim().max(1000).optional().allow(''),
+});
+
+export const reviewIdParamSchema = Joi.object({
+  id: Joi.string().required(),
+});

@@ -27,4 +27,12 @@ router.patch(
 );
 router.post('/', authenticate, validate(placeOrderSchema), orderController.createOrder);
 
+router.patch(
+  '/:orderId/status',
+  authenticate,
+  validate(orderParamsSchema, 'params'),
+  validate(updateStatusSchema),
+  orderController.updateOrderStatus
+);
+
 export default router;

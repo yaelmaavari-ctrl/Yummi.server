@@ -92,4 +92,16 @@ export const orderController = {
 
     res.status(201).json({ success: true, data: order });
   }),
+
+  updateOrderStatus: asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw ApiError.unauthorized('Authentication required');
+    }
+
+    const { orderId } = req.params as { orderId: string };
+    const { status } = req.body as { status: OrderStatus };
+    const order = await orderService.updateStatus(orderId, status);
+
+    res.status(200).json({ success: true, data: order });
+  }),
 };

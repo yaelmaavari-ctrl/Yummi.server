@@ -181,4 +181,21 @@ export const orderService = {
 
     return order;
   },
+
+  /**
+   * Updates the status of an order identified by orderId.
+   */
+  async updateStatus(orderId: string, status: OrderStatus): Promise<IOrder> {
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      { status },
+      { new: true, runValidators: true }
+    );
+
+    if (!order) {
+      throw ApiError.notFound('Order not found');
+    }
+
+    return order;
+  },
 };

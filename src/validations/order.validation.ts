@@ -32,4 +32,14 @@ export const listOrdersQuerySchema = Joi.object({
   sort: Joi.string().valid('latest', 'oldest').default('latest'),
 });
 
+export const orderParamsSchema = Joi.object({
+  orderId: Joi.string().hex().length(24).required(),
+});
+
+export const updateStatusSchema = Joi.object({
+  status: Joi.string()
+    .valid(...Object.values(OrderStatus))
+    .required(),
+});
+
 export const cancelOrderSchema = Joi.object({});

@@ -34,9 +34,6 @@ const ingredientSchema = new Schema<IIngredient>(
   { timestamps: true }
 );
 
-ingredientSchema.index(
-  { name: 1 },
-  { unique: true, collation: { locale: 'en', strength: 2 } }
-);
+ingredientSchema.index({ name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
 
 export const Ingredient = model<IIngredient>('Ingredient', ingredientSchema);

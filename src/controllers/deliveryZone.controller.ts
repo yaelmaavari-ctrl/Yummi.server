@@ -32,7 +32,7 @@ const update = asyncHandler(async (req: Request, res: Response) => {
 const setStatus = asyncHandler(async (req: Request, res: Response) => {
   const zone = await deliveryZoneService.setStatus(
     req.params['id'] as string,
-    req.body.isActive as boolean,
+    req.body.isActive as boolean
   );
   res.status(200).json({ success: true, data: { zone } });
 });

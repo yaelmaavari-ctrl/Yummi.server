@@ -13,16 +13,16 @@ import { UserRole } from '../types';
 
 const router = Router();
 
-const catalogViewRoles = [
-  UserRole.CUSTOMER,
-  UserRole.KITCHEN,
-  UserRole.DELIVERY,
-  UserRole.ADMIN,
-];
+const catalogViewRoles = [UserRole.CUSTOMER, UserRole.KITCHEN, UserRole.DELIVERY, UserRole.ADMIN];
 
 router.use(authenticate);
 
-router.post('/', authorize(UserRole.ADMIN), validate(createProductSchema), productController.create);
+router.post(
+  '/',
+  authorize(UserRole.ADMIN),
+  validate(createProductSchema),
+  productController.create
+);
 
 router.patch(
   '/:id/availability',

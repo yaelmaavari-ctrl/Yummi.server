@@ -9,6 +9,11 @@ const router = Router();
 router.post('/register', validate(registerSchema), authController.register);
 router.post('/login', validate(loginSchema), authController.login);
 router.get('/me', authenticate, authController.getMe);
-router.patch('/active-role', authenticate, validate(switchRoleSchema), authController.switchActiveRole);
+router.patch(
+  '/active-role',
+  authenticate,
+  validate(switchRoleSchema),
+  authController.switchActiveRole
+);
 
 export default router;

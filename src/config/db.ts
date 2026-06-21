@@ -8,6 +8,7 @@ import { env } from './env';
 export async function connectDB(): Promise<void> {
   try {
     mongoose.set('strictQuery', true);
+    console.log("MONGO URI:", env.mongoUri);
     await mongoose.connect(env.mongoUri);
     console.log('[db] Connected to MongoDB');
   } catch (error) {

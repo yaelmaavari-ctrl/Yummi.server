@@ -594,14 +594,35 @@ Range with modified hours (e.g. New Year's Eve):
 
 ## Reviews — `/api/reviews`
 
-> 🚧 Not implemented yet (returns 501).
+### POST `/api/reviews`
+**Auth:** JWT  
+**Roles:** `CUSTOMER`  
+**Body:**
+```json
+{
+  "orderId": "string (ObjectId)",
+  "rating": "integer (1–5)",
+  "comment": "string (max 1000, optional)"
+}
+```
+**Returns:** `{ review }` — created review  
+**Errors:** `400` if order is not COMPLETED; `403` if order does not belong to the customer; `404` if order not found; `409` if a review for this order already exists.  
+**Note:** Reviews are immutable — once created they cannot be edited or deleted.
 
-**Planned endpoints:**
-- `GET /api/reviews` — List all reviews (ADMIN)
-- `GET /api/reviews/:id` — Get review by id (ADMIN, CUSTOMER — own only)
-- `POST /api/reviews` — Create review (CUSTOMER)
-  - Body: `{ orderId, rating (1–5), comment? }`
-  - Constraints: order must be COMPLETED, one review per order, immutable
+---
+
+### GET `/api/reviews`
+**Auth:** JWT  
+**Roles:** `ADMIN`  
+**Returns:** `{ reviews }` — all reviews, newest first.
+
+---
+
+### GET `/api/reviews/:id`
+**Auth:** JWT  
+**Roles:** `ADMIN`, `CUSTOMER` (own review only)  
+**Returns:** `{ review }`  
+**Errors:** `403` if CUSTOMER requests a review that belongs to another customer; `404` if not found.
 
 ---
 

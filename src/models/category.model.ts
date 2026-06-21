@@ -5,24 +5,40 @@ import { Schema, model, Document } from 'mongoose';
  *
  * Categories use soft delete only. Deletion is blocked while active
  * (non-deleted) products still reference the category.
- *
- * TODO (Developer A): define fields, e.g.:
- *   - name: string
- *   - description: string
- *   - image: string
- *   - isDeleted: boolean (soft delete flag)
  */
 export interface ICategory extends Document {
-  // TODO: define fields
+  name: string;
+  description?: string;
+  image?: string;
   isDeleted: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const categorySchema = new Schema<ICategory>(
   {
-    // TODO: define schema fields
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 100,
+    },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+    image: {
+      type: String,
+      trim: true,
+      maxlength: 2048,
+    },
     isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
+
+categorySchema.index({ name: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
 
 export const Category = model<ICategory>('Category', categorySchema);

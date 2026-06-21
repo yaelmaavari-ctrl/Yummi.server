@@ -13,7 +13,7 @@ const router = Router();
 /**
  * Cart routes. Owner: Developer B.
  */
-router.get('/',  cartController.getCart);
+router.get('/', authenticate, cartController.getCart);
 router.post('/items', authenticate, validate(addItemSchema), cartController.addItem);
 router.patch(
   '/items/:productId',

@@ -1,13 +1,19 @@
 import { Router } from 'express';
+import { authController } from '../controllers/auth.controller';
+import { authenticate } from '../middlewares/auth.middleware';
+import { validate } from '../middlewares/validate.middleware';
+import { registerSchema, loginSchema, switchRoleSchema } from '../validations/auth.validation';
 
 const router = Router();
 
-/**
- * Auth routes. Owner: Developer A.
- * TODO: wire register, login, switch-active-role, me, etc. to authController.
- */
-router.get('/', (_req, res) => {
-  res.status(501).json({ success: false, message: 'Auth endpoints not implemented yet' });
-});
+router.post('/register', validate(registerSchema), authController.register);
+router.post('/login', validate(loginSchema), authController.login);
+router.get('/me', authenticate, authController.getMe);
+router.patch(
+  '/active-role',
+  authenticate,
+  validate(switchRoleSchema),
+  authController.switchActiveRole
+);
 
 export default router;

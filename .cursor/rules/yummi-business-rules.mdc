@@ -1,0 +1,86 @@
+---
+description: Yummi domain business rules — users, orders, catalog, delivery, and real-time events
+alwaysApply: true
+---
+
+# Yummi Business Rules
+
+Food Ordering Management System — enforce these domain rules in services and validation.
+
+## User Roles
+
+`CUSTOMER` | `KITCHEN` | `DELIVERY` | `ADMIN` (see `UserRole` enum)
+
+- A user may have multiple roles; only one is active per session.
+- JWT payload: `{ userId, activeRole }`.
+
+### Registration
+
+- Customers self-register; registration always assigns `CUSTOMER`.
+- Employees are created only by `ADMIN`, who may assign `KITCHEN`, `DELIVERY`, `ADMIN` (single or multiple roles).
+
+## Categories
+
+- Names must be unique.
+- Soft delete only.
+- Cannot delete a category that has active products.
+
+## Products
+
+- Belongs to one category; contains ingredients.
+- Extras are optional ingredients (product may have none).
+- Availability is toggled manually only — never changed automatically.
+
+## Ingredients
+
+- Managed manually by kitchen workers; mark `TEMPORARILY_UNAVAILABLE` when an ingredient runs out.
+- Status: `AVAILABLE` | `TEMPORARILY_UNAVAILABLE` (`IngredientStatus` enum).
+- Shortage does **not** auto-disable products.
+
+## Orders
+
+Status flow (`OrderStatus`):
+
+```
+RECEIVED → APPROVED → IN_PREPARATION → READY → COMPLETED
+                ↘ CANCELLED
+```
+
+- Customer may cancel only while status is `RECEIVED`; cancellation reason is mandatory.
+- Store immutable snapshots on the order:
+  - product name, product price, selected extras, extra prices
+
+## Delivery
+
+- Zones managed by `ADMIN`; each city belongs to one zone with `deliveryPrice` and `estimatedMinutes`.
+- Unsupported cities: cannot place delivery orders; may place pickup orders.
+
+## Business Hours
+
+- Orders cannot be created outside business hours.
+- Admin manages weekly schedule and special dates.
+
+## Reviews
+
+- One review per completed order; rating 1–5; immutable after creation.
+
+## Notifications
+
+- Customer: notified when order becomes `READY`.
+- Admin: notified when a kitchen issue is reported.
+
+## Statistics
+
+Provide: total orders, monthly revenue, most sold products, average rating, total cancellations.
+
+## Deletion Policy
+
+- Soft delete only where specified.
+- Never physically delete entities referenced by historical orders.
+
+## Real Time
+
+Use `SocketEvents` from `src/sockets/events.ts`:
+
+- `ORDER_APPROVED`, `ORDER_IN_PREPARATION`, `ORDER_READY`, `ORDER_COMPLETED`, `ORDER_CANCELLED`
+- `PRODUCT_AVAILABILITY_CHANGED`, `INGREDIENT_AVAILABILITY_CHANGED`, `KITCHEN_ISSUE_REPORTED`

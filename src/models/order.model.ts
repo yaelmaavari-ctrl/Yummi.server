@@ -26,6 +26,9 @@ export interface IOrder extends Document {
   status: OrderStatus;
   orderType: OrderType;
   paymentStatus: PaymentStatus;
+  deliveryType: 'PICKUP' | 'DELIVERY';
+  deliveryAddress?: string;
+  estimatedDeliveryTime?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -66,6 +69,17 @@ const orderSchema = new Schema<IOrder>(
       type: String,
       enum: Object.values(PaymentStatus),
       default: PaymentStatus.PENDING,
+    },
+    deliveryType: {
+      type: String,
+      enum: ['PICKUP', 'DELIVERY'],
+      default: 'PICKUP',
+    },
+    deliveryAddress: {
+      type: String,
+    },
+    estimatedDeliveryTime: {
+      type: Date,
     },
   },
   { timestamps: true }

@@ -36,7 +36,7 @@ export const cartService = {
     if (existingItem) {
       existingItem.quantity += quantity;
     } else {
-      cart.items.push({ productId, quantity } as ICart['items'][number]);
+      cart.items.push({ productId, quantity } as unknown as ICart['items'][number]);
     }
 
     await cart.save();

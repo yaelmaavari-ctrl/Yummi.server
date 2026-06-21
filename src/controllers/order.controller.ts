@@ -1,61 +1,94 @@
 import { Request, Response } from 'express';
+import { Types } from 'mongoose';
 import { orderService } from '../services/order.service';
+import { notificationService } from '../services/notification.service';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { OrderStatus, OrderType } from '../types';
+import { emitOrderCreated } from '../sockets/orderNotifications';
+
+function assertAuthenticated(
+  req: Request
+): asserts req is Request & { user: NonNullable<Request['user']> } {
+  if (!req.user) {
+    throw ApiError.unauthorized('Authentication required');
+  }
+}
+
+function assertEmployee(req: Request): void {
+  assertAuthenticated(req);
+  if (req.user.activeRole !== 'KITCHEN') {
+    throw ApiError.forbidden('You do not have permission to perform this action');
+  }
+}
 
 /**
  * Order controller. Owner: Developer B.
  * Thin handlers that delegate to orderService.
  */
 export const orderController = {
-  listOrders: asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) {
-      throw ApiError.unauthorized('Authentication required');
-    }
+  getAllOrders: asyncHandler(async (req: Request, res: Response) => {
+    assertEmployee(req);
 
-    const { status, sort } = req.query as {
-      status?: OrderStatus;
-      sort?: 'latest' | 'oldest';
-    };
-
-    const orders = await orderService.listOrders({
-      userId: req.user.userId,
-      activeRole: req.user.activeRole,
-      status,
-      sort,
-    });
+    const orders = await orderService.getAllOrders();
 
     res.status(200).json({ success: true, data: orders });
   }),
 
-  listKitchenOrders: asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) {
-      throw ApiError.unauthorized('Authentication required');
-    }
+  getMyOrders: asyncHandler(async (req: Request, res: Response) => {
+    assertAuthenticated(req);
 
-    const orders = await orderService.listKitchenOrders();
+    const orders = await orderService.getOrdersByUser(req.user.userId);
 
     res.status(200).json({ success: true, data: orders });
   }),
 
-  getUserOrderHistory: asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) {
-      throw ApiError.unauthorized('Authentication required');
-    }
+  getKitchenOrders: asyncHandler(async (req: Request, res: Response) => {
+    assertEmployee(req);
 
-    const orders = await orderService.getUserOrderHistory(req.user.userId);
+    const orders = await orderService.getKitchenOrders();
 
     res.status(200).json({ success: true, data: orders });
+  }),
+
+  updateOrderStatus: asyncHandler(async (req: Request, res: Response) => {
+    assertEmployee(req);
+
+    const { id } = req.params as { id: string };
+    const { status } = req.body as { status: OrderStatus };
+
+    // Socket emits and notification persistence happen inside the service,
+    // after order.save(), so this handler stays thin.
+    const order = await orderService.updateOrderStatus(id, status);
+
+    res.status(200).json({ success: true, data: order });
   }),
 
   createOrder: asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) {
-      throw ApiError.unauthorized('Authentication required');
-    }
+    assertAuthenticated(req);
 
-    const { orderType } = req.body as { orderType: OrderType };
-    const order = await orderService.createFromCart(req.user.userId, orderType);
+    const { orderType, deliveryType, deliveryAddress } = req.body as {
+      orderType: OrderType;
+      deliveryType?: 'PICKUP' | 'DELIVERY';
+      deliveryAddress?: string;
+    };
+    const order = await orderService.createFromCart(
+      req.user.userId,
+      orderType,
+      deliveryType,
+      deliveryAddress
+    );
+
+    const ownerId = req.user.userId;
+    const orderId = (order._id as Types.ObjectId).toString();
+
+    emitOrderCreated(ownerId, order);
+    await notificationService.create({
+      recipientId: ownerId,
+      type: 'ORDER_CREATED',
+      message: 'Your order has been received',
+      orderId,
+    });
 
     res.status(201).json({ success: true, data: order });
   }),

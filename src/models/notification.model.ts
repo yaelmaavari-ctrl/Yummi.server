@@ -1,27 +1,34 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
 /**
  * Notification document. Owner: Developer B (Notifications).
  *
- * In-app notifications. Examples:
- *   - Customer notified when their order becomes READY.
- *   - Administrators notified when a kitchen issue is reported.
- *
- * TODO (Developer B): define fields, e.g.:
- *   - recipient: ObjectId ref 'User'
- *   - type: string (e.g. ORDER_READY, KITCHEN_ISSUE_REPORTED)
- *   - message: string
- *   - data: Mixed (e.g. { orderId })
- *   - isRead: boolean
+ * In-app notifications persisted for customers and staff.
  */
 export interface INotification extends Document {
-  // TODO: define fields
+  recipient: Types.ObjectId;
+  type: string;
+  message: string;
+  data: { orderId?: string };
   isRead: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const notificationSchema = new Schema<INotification>(
   {
-    // TODO: define schema fields
+    recipient: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+    type: { type: String, required: true },
+    message: { type: String, required: true },
+    data: {
+      type: Schema.Types.Mixed,
+      default: {},
+    },
     isRead: { type: Boolean, default: false },
   },
   { timestamps: true }

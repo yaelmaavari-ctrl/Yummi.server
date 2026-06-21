@@ -3,22 +3,28 @@ import { orderController } from '../controllers/order.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { authorize } from '../middlewares/role.middleware';
 import { validate } from '../middlewares/validate.middleware';
-import { listOrdersQuerySchema, placeOrderSchema } from '../validations/order.validation';
-import { UserRole } from '../types';
+import {
+  orderIdParamsSchema,
+  placeOrderSchema,
+  updateOrderStatusSchema,
+} from '../validations/order.validation';
 
 const router = Router();
 
 /**
  * Order routes. Owner: Developer B.
+ * Mounted at /api/orders
  */
-router.get(
-  '/kitchen',
+router.get('/kitchen', authenticate, orderController.getKitchenOrders);
+router.get('/my', authenticate, orderController.getMyOrders);
+router.get('/', authenticate, orderController.getAllOrders);
+router.patch(
+  '/:id/status',
   authenticate,
-  authorize(UserRole.KITCHEN, UserRole.ADMIN),
-  orderController.listKitchenOrders
+  validate(orderIdParamsSchema, 'params'),
+  validate(updateOrderStatusSchema),
+  orderController.updateOrderStatus
 );
-router.get('/me', authenticate, orderController.getUserOrderHistory);
-router.get('/', authenticate, validate(listOrdersQuerySchema, 'query'), orderController.listOrders);
 router.post('/', authenticate, validate(placeOrderSchema), orderController.createOrder);
 
 export default router;

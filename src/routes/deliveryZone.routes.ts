@@ -23,7 +23,7 @@ router.get(
   '/city/:city',
   authorize(...allRoles),
   validate(cityParamSchema, 'params'),
-  deliveryZoneController.checkCity,
+  deliveryZoneController.checkCity
 );
 
 router.get('/', authorize(...allRoles), deliveryZoneController.list);
@@ -32,14 +32,14 @@ router.get(
   '/:id',
   authorize(...allRoles),
   validate(deliveryZoneIdParamSchema, 'params'),
-  deliveryZoneController.getById,
+  deliveryZoneController.getById
 );
 
 router.post(
   '/',
   authorize(UserRole.ADMIN),
   validate(createDeliveryZoneSchema),
-  deliveryZoneController.create,
+  deliveryZoneController.create
 );
 
 router.patch(
@@ -47,7 +47,7 @@ router.patch(
   authorize(UserRole.ADMIN),
   validate(deliveryZoneIdParamSchema, 'params'),
   validate(setZoneStatusSchema),
-  deliveryZoneController.setStatus,
+  deliveryZoneController.setStatus
 );
 
 router.patch(
@@ -55,14 +55,14 @@ router.patch(
   authorize(UserRole.ADMIN),
   validate(deliveryZoneIdParamSchema, 'params'),
   validate(updateDeliveryZoneSchema),
-  deliveryZoneController.update,
+  deliveryZoneController.update
 );
 
 router.delete(
   '/:id',
   authorize(UserRole.ADMIN),
   validate(deliveryZoneIdParamSchema, 'params'),
-  deliveryZoneController.remove,
+  deliveryZoneController.remove
 );
 
 export default router;

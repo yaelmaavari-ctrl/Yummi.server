@@ -94,7 +94,7 @@ async function checkCity(city: string): Promise<PublicDeliveryZone> {
 
   if (!zone) {
     throw ApiError.notFound(
-      'This city is not supported for delivery. You may place a pickup order instead.',
+      'This city is not supported for delivery. You may place a pickup order instead.'
     );
   }
 

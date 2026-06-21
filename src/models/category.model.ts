@@ -39,9 +39,6 @@ const categorySchema = new Schema<ICategory>(
   { timestamps: true }
 );
 
-categorySchema.index(
-  { name: 1 },
-  { unique: true, partialFilterExpression: { isDeleted: false } }
-);
+categorySchema.index({ name: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
 
 export const Category = model<ICategory>('Category', categorySchema);

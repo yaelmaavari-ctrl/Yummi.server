@@ -13,12 +13,7 @@ import { UserRole } from '../types';
 
 const router = Router();
 
-const catalogViewRoles = [
-  UserRole.CUSTOMER,
-  UserRole.KITCHEN,
-  UserRole.DELIVERY,
-  UserRole.ADMIN,
-];
+const catalogViewRoles = [UserRole.CUSTOMER, UserRole.KITCHEN, UserRole.DELIVERY, UserRole.ADMIN];
 
 const kitchenRoles = [UserRole.KITCHEN, UserRole.ADMIN];
 

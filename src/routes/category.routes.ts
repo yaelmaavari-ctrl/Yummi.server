@@ -12,12 +12,7 @@ import { UserRole } from '../types';
 
 const router = Router();
 
-const catalogViewRoles = [
-  UserRole.CUSTOMER,
-  UserRole.KITCHEN,
-  UserRole.DELIVERY,
-  UserRole.ADMIN,
-];
+const catalogViewRoles = [UserRole.CUSTOMER, UserRole.KITCHEN, UserRole.DELIVERY, UserRole.ADMIN];
 
 router.use(authenticate);
 
@@ -35,7 +30,12 @@ router.get(
   categoryController.getById
 );
 
-router.post('/', authorize(UserRole.ADMIN), validate(createCategorySchema), categoryController.create);
+router.post(
+  '/',
+  authorize(UserRole.ADMIN),
+  validate(createCategorySchema),
+  categoryController.create
+);
 router.patch(
   '/:id',
   authorize(UserRole.ADMIN),

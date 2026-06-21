@@ -55,7 +55,11 @@ const deliveryZoneSchema = new Schema<IDeliveryZone>(
 
 deliveryZoneSchema.index(
   { city: 1 },
-  { unique: true, partialFilterExpression: { isDeleted: false }, collation: { locale: 'en', strength: 2 } }
+  {
+    unique: true,
+    partialFilterExpression: { isDeleted: false },
+    collation: { locale: 'en', strength: 2 },
+  }
 );
 
 export const DeliveryZone = model<IDeliveryZone>('DeliveryZone', deliveryZoneSchema);

@@ -99,6 +99,7 @@ export const orderService = {
     // Emit the canonical status-specific event
     const socketEvent = STATUS_TO_SOCKET_EVENT[status];
     if (socketEvent) {
+      console.log("EMIT TEST:", socketEvent, order.userId.toString());
       emitEvent(socketEvent, order, userRoom);
     }
 

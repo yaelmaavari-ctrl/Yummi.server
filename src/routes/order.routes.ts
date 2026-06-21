@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { orderController } from '../controllers/order.controller';
 import { authenticate } from '../middlewares/auth.middleware';
+import { authorize } from '../middlewares/role.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import {
   orderIdParamsSchema,

@@ -27,4 +27,9 @@ export const updateOrderStatusSchema = Joi.object({
     .required(),
 });
 
+export const listOrdersQuerySchema = Joi.object({
+  status: Joi.string().valid(...Object.values(OrderStatus)),
+  sort: Joi.string().valid('latest', 'oldest').default('latest'),
+});
+
 export const cancelOrderSchema = Joi.object({});

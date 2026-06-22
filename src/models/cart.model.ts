@@ -6,10 +6,15 @@ import { Schema, model, Document, Types } from 'mongoose';
  * Holds the customer's in-progress selection before an order is placed.
  * Each user has exactly one cart (1:1 relationship enforced by a unique
  * index on `userId`).
+ *
+ * Line items with the same product but different add-ons are stored as
+ * separate entries. Matching merges quantity only when productId and
+ * selectedExtras are identical.
  */
 export interface ICartItem {
   productId: Types.ObjectId;
   quantity: number;
+  selectedExtras: Types.ObjectId[];
 }
 
 export interface ICart extends Document {
@@ -32,8 +37,12 @@ const cartItemSchema = new Schema<ICartItem>(
       min: 1,
       default: 1,
     },
+    selectedExtras: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'Ingredient' }],
+      default: [],
+    },
   },
-  { _id: false }
+  { _id: true }
 );
 
 const cartSchema = new Schema<ICart>(

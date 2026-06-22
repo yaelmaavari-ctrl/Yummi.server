@@ -6,27 +6,25 @@ import {
   addItemSchema,
   updateItemParamsSchema,
   updateItemSchema,
+  removeItemQuerySchema,
 } from '../validations/cart.validation';
 
 const router = Router();
 
-/**
- * Cart routes. Owner: Developer B.
- */
-router.get('/', authenticate, cartController.getCart);
-router.post('/items', authenticate, validate(addItemSchema), cartController.addItem);
+router.use(authenticate);
+
+router.get('/', cartController.getCart);
+router.post('/items', validate(addItemSchema), cartController.addItem);
 router.patch(
   '/items/:productId',
-  authenticate,
   validate(updateItemParamsSchema, 'params'),
   validate(updateItemSchema),
   cartController.updateItem
 );
-
 router.delete(
   '/items/:productId',
-  authenticate,
   validate(updateItemParamsSchema, 'params'),
+  validate(removeItemQuerySchema, 'query'),
   cartController.removeItem
 );
 

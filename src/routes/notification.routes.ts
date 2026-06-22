@@ -6,13 +6,11 @@ import { notificationIdParamsSchema } from '../validations/notification.validati
 
 const router = Router();
 
-/**
- * Notification routes. Owner: Developer B.
- */
-router.get('/', authenticate, notificationController.listMine);
+router.use(authenticate);
+
+router.get('/', notificationController.listMine);
 router.patch(
   '/:id/read',
-  authenticate,
   validate(notificationIdParamsSchema, 'params'),
   notificationController.markAsRead
 );

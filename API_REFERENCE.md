@@ -628,63 +628,180 @@ Range with modified hours (e.g. New Year's Eve):
 
 ## Cart — `/api/cart`
 
-> 🚧 Not implemented yet (returns 501).
+> One cart per user, created on first access. The cart is cleared automatically when an order is placed.
 
-**Planned endpoints:**
-- `GET /api/cart` — Get current user's cart (CUSTOMER)
-- `POST /api/cart/items` — Add item to cart (CUSTOMER)
-  - Body: `{ productId, quantity, selectedExtras?: [ingredientId] }`
-- `PATCH /api/cart/items/:productId` — Update item quantity (CUSTOMER)
-  - Body: `{ quantity }`
-- `DELETE /api/cart/items/:productId` — Remove item (CUSTOMER)
-- `DELETE /api/cart` — Clear cart (CUSTOMER)
+### GET `/api/cart`
+**Auth:** JWT
+**Roles:** Any authenticated
+**Body:** None
+**Returns:** The current user's cart (with populated `items.productId`). Creates an empty cart on first access.
+
+---
+
+### POST `/api/cart/items`
+**Auth:** JWT
+**Roles:** Any authenticated
+**Body:**
+```json
+{
+  "productId": "string (ObjectId)",
+  "quantity": "integer (≥ 1) [optional, default 1]"
+}
+```
+**Note:** If the product is already in the cart, its quantity is increased.
+**Returns:** The updated cart.
+
+---
+
+### PATCH `/api/cart/items/:productId`
+**Auth:** JWT
+**Roles:** Any authenticated
+**Params:** `productId` — MongoDB ObjectId
+**Body:**
+```json
+{
+  "quantity": "integer (≥ 1)"
+}
+```
+**Returns:** The updated cart.
+**Errors:** `404` if the cart or the item is not found.
+
+---
+
+### DELETE `/api/cart/items/:productId`
+**Auth:** JWT
+**Roles:** Any authenticated
+**Params:** `productId` — MongoDB ObjectId
+**Body:** None
+**Returns:** The updated cart.
+**Errors:** `404` if the cart or the item is not found.
 
 ---
 
 ## Orders — `/api/orders`
 
-> 🚧 Not implemented yet (returns 501).
+> Orders are created from the user's cart. Items store immutable **snapshots** of product name and price at purchase time.
+> Lifecycle: `RECEIVED → APPROVED → IN_PREPARATION → READY → COMPLETED` (or `CANCELLED` while still `RECEIVED`).
 
-**Planned endpoints:**
-- `GET /api/orders` — List orders (ADMIN: all; CUSTOMER: own; KITCHEN: assigned)
-- `GET /api/orders/:id` — Get order detail (ADMIN, CUSTOMER — own, KITCHEN — assigned)
-- `POST /api/orders` — Place order (CUSTOMER)
-  - Body:
-    ```json
-    {
-      "orderType": "DELIVERY | PICKUP",
-      "deliveryAddress": { "city", "street", "houseNumber" },
-      "items": [{ "productId", "quantity", "selectedExtras": ["ingredientId"] }]
-    }
-    ```
-  - Constraints: business must be open, delivery city must be in a delivery zone
-- `PATCH /api/orders/:id/status` — Advance order status (KITCHEN / ADMIN)
-  - Body: `{ "status": "APPROVED | IN_PREPARATION | READY | COMPLETED" }`
-- `POST /api/orders/:id/cancel` — Cancel order (CUSTOMER — only while RECEIVED)
-  - Body: `{ "reason": "string" }`
+### GET `/api/orders/kitchen`
+**Auth:** JWT
+**Roles:** `KITCHEN`, `ADMIN`
+**Body:** None
+**Returns:** Active kitchen queue (orders in `RECEIVED`, `APPROVED`, or `IN_PREPARATION`), oldest first (FIFO).
+
+---
+
+### GET `/api/orders/my`
+**Auth:** JWT
+**Roles:** Any authenticated
+**Body:** None
+**Returns:** The authenticated user's own orders, newest first.
+
+---
+
+### GET `/api/orders`
+**Auth:** JWT
+**Roles:** `KITCHEN`, `DELIVERY`, `ADMIN`
+**Body:** None
+**Returns:** All orders, newest first.
+
+---
+
+### POST `/api/orders`
+**Auth:** JWT
+**Roles:** `CUSTOMER`
+**Body:**
+```json
+{
+  "orderType": "DELIVERY | PICKUP [optional, default PICKUP]",
+  "deliveryCity": "string (2–100) [required when orderType = DELIVERY]",
+  "deliveryAddress": "string (2–500) [required when orderType = DELIVERY]"
+}
+```
+**Behavior:** Builds the order from the current cart, snapshots item name/price, then clears the cart. For `DELIVERY`, the zone's `deliveryPrice` is added to the total and `estimatedDeliveryTime` is computed from the zone's `estimatedDeliveryMinutes`.
+**Constraints:** The business must be open; for delivery, the city must have an active delivery zone.
+**Errors:** `400` if the cart is empty, the business is closed, or delivery fields are missing; `404` if the delivery city is not supported.
+**Returns:** `201` with the created order.
+
+---
+
+### PATCH `/api/orders/:id/status`
+**Auth:** JWT
+**Roles:** `KITCHEN`, `DELIVERY`, `ADMIN`
+**Params:** `id` — MongoDB ObjectId
+**Body:**
+```json
+{
+  "status": "APPROVED | IN_PREPARATION | READY | COMPLETED | CANCELLED"
+}
+```
+**Behavior:** Validates the transition against the lifecycle, emits the matching socket event to the customer, and persists a notification. `READY` highlights a dedicated notification; for delivery orders entering `IN_PREPARATION`, the ETA is recalculated and `order:estimatedTimeUpdated` is emitted.
+**Errors:** `400` for an invalid transition; `404` if the order is not found.
+**Returns:** The updated order.
+
+---
+
+### POST `/api/orders/:id/cancel`
+**Auth:** JWT
+**Roles:** `CUSTOMER`
+**Params:** `id` — MongoDB ObjectId
+**Body:**
+```json
+{
+  "reason": "string (3–500)"
+}
+```
+**Behavior:** Cancels the order, stores the reason, emits `ORDER_CANCELLED`, and notifies the customer.
+**Errors:** `400` if the order is not in `RECEIVED` status; `403` if the order does not belong to the requester; `404` if not found.
+**Returns:** The cancelled order.
 
 ---
 
 ## Notifications — `/api/notifications`
 
-> 🚧 Not implemented yet (returns 501).
+> In-app notifications are persisted and also pushed in real time via the `notification:new` socket event to the recipient's `user:<id>` room.
 
-**Planned endpoints:**
-- `GET /api/notifications` — Get own notifications (any authenticated)
-- `PATCH /api/notifications/:id/read` — Mark as read (owner)
-- `PATCH /api/notifications/read-all` — Mark all as read (any authenticated)
+### GET `/api/notifications`
+**Auth:** JWT
+**Roles:** Any authenticated
+**Body:** None
+**Returns:** The authenticated user's notifications, newest first.
+
+---
+
+### PATCH `/api/notifications/:id/read`
+**Auth:** JWT
+**Roles:** Any authenticated (owner only)
+**Params:** `id` — MongoDB ObjectId
+**Body:** None
+**Returns:** The updated notification (`isRead: true`).
+**Errors:** `404` if the notification does not exist or does not belong to the requester.
 
 ---
 
 ## Statistics — `/api/stats`
 
-> 🚧 Not implemented yet (returns 501).
+### GET `/api/stats`
+**Auth:** JWT
+**Roles:** `ADMIN`
+**Body:** None
+**Returns:** Aggregated admin dashboard figures.
 
-**Planned endpoints:**
-- `GET /api/stats` — Aggregated stats (ADMIN)
-  - Returns: total orders, monthly revenue, most sold products, average rating, total cancellations
-- `GET /api/stats/revenue` — Revenue over time (ADMIN)
-  - Query: `?from=YYYY-MM-DD&to=YYYY-MM-DD`
+```json
+{
+  "success": true,
+  "data": {
+    "totalOrders": 128,
+    "monthlyRevenue": 4210.5,
+    "mostSoldProducts": [
+      { "productId": "...", "name": "Margherita Pizza", "totalQuantity": 64 }
+    ],
+    "averageRating": 4.37,
+    "totalCancellations": 7
+  }
+}
+```
+**Notes:** `monthlyRevenue` sums the `total` of `COMPLETED` orders in the current calendar month. `mostSoldProducts` returns the top 5 by quantity across all non-cancelled orders. `averageRating` is the mean of all review ratings.
 
 ---
 
@@ -694,18 +811,21 @@ Connect via Socket.IO with `auth: { token: "<JWT>" }`.
 
 After connection the server places the socket in:
 - `user:<userId>` — personal room
-- `role:<activeRole>` — role broadcast room (e.g. `role:KITCHEN`)
+- `role:<activeRole lowercased>` — role broadcast room (e.g. `role:kitchen`)
 
-| Event | Emitted when | Data |
-|-------|-------------|------|
-| `ORDER_APPROVED` | Order status → APPROVED | `{ orderId }` |
-| `ORDER_IN_PREPARATION` | Order status → IN_PREPARATION | `{ orderId }` |
-| `ORDER_READY` | Order status → READY | `{ orderId }` |
-| `ORDER_COMPLETED` | Order status → COMPLETED | `{ orderId }` |
-| `ORDER_CANCELLED` | Order cancelled | `{ orderId }` |
-| `PRODUCT_AVAILABILITY_CHANGED` | Product toggled | `{ productId, isAvailable }` |
-| `INGREDIENT_AVAILABILITY_CHANGED` | Ingredient status changed | `{ ingredientId, status }` |
-| `KITCHEN_ISSUE_REPORTED` | Kitchen reports an issue | `{ ... }` |
+| Event | Event name | Emitted when | Target | Data |
+|-------|-----------|-------------|--------|------|
+| `ORDER_CREATED` | `order:created` | A new order is placed | order owner | order |
+| `ORDER_APPROVED` | `ORDER_APPROVED` | Order status → APPROVED | order owner | order |
+| `ORDER_IN_PREPARATION` | `ORDER_IN_PREPARATION` | Order status → IN_PREPARATION | order owner | order |
+| `ORDER_READY` | `ORDER_READY` | Order status → READY | order owner | order |
+| `ORDER_COMPLETED` | `ORDER_COMPLETED` | Order status → COMPLETED | order owner | order |
+| `ORDER_CANCELLED` | `ORDER_CANCELLED` | Order cancelled | order owner | order |
+| `ORDER_ESTIMATED_TIME_UPDATED` | `order:estimatedTimeUpdated` | Delivery ETA recalculated (on IN_PREPARATION) | order owner | order |
+| `NOTIFICATION_NEW` | `notification:new` | A notification is persisted | recipient | `{ message, type, orderId?, notification }` |
+| `PRODUCT_AVAILABILITY_CHANGED` | `PRODUCT_AVAILABILITY_CHANGED` | Product availability toggled | broadcast | `{ productId, isAvailable }` |
+| `INGREDIENT_AVAILABILITY_CHANGED` | `INGREDIENT_AVAILABILITY_CHANGED` | Ingredient status changed | broadcast | `{ ingredientId, status }` |
+| `KITCHEN_ISSUE_REPORTED` | `KITCHEN_ISSUE_REPORTED` | Kitchen reports an issue | admins | `{ ... }` |
 
 ---
 

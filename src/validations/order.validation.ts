@@ -9,11 +9,15 @@ export const placeOrderSchema = Joi.object({
   orderType: Joi.string()
     .valid(...Object.values(OrderType))
     .default(OrderType.PICKUP),
-  deliveryType: Joi.string().valid('PICKUP', 'DELIVERY').default('PICKUP'),
-  deliveryAddress: Joi.when('deliveryType', {
-    is: 'DELIVERY',
-    then: Joi.string().required(),
-    otherwise: Joi.string().optional(),
+  deliveryCity: Joi.when('orderType', {
+    is: OrderType.DELIVERY,
+    then: Joi.string().trim().min(2).max(100).required(),
+    otherwise: Joi.forbidden(),
+  }),
+  deliveryAddress: Joi.when('orderType', {
+    is: OrderType.DELIVERY,
+    then: Joi.string().trim().min(2).max(500).required(),
+    otherwise: Joi.forbidden(),
   }),
 });
 
@@ -32,14 +36,6 @@ export const listOrdersQuerySchema = Joi.object({
   sort: Joi.string().valid('latest', 'oldest').default('latest'),
 });
 
-export const orderParamsSchema = Joi.object({
-  orderId: Joi.string().hex().length(24).required(),
+export const cancelOrderSchema = Joi.object({
+  reason: Joi.string().trim().min(3).max(500).required(),
 });
-
-export const updateStatusSchema = Joi.object({
-  status: Joi.string()
-    .valid(...Object.values(OrderStatus))
-    .required(),
-});
-
-export const cancelOrderSchema = Joi.object({});

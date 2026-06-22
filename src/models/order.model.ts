@@ -4,17 +4,25 @@ import { OrderStatus, OrderType, PaymentStatus } from '../types';
 /**
  * Order document. Owner: Developer B (Ordering & Operations).
  *
- * Items are SNAPSHOTS of product name/price at purchase time so that
- * historical orders remain correct even if products are later modified.
+ * Items are SNAPSHOTS of product name/price and selected add-on names/prices
+ * at purchase time so that historical orders remain correct even if products
+ * or ingredients are later modified.
  *
- * Lifecycle: PENDING -> PREPARING -> READY -> OUT_FOR_DELIVERY -> DELIVERED
- *            (CANCELLED allowed at any point before DELIVERED).
+ * Lifecycle: RECEIVED -> APPROVED -> IN_PREPARATION -> READY -> COMPLETED
+ *            (CANCELLED allowed only while still RECEIVED).
  */
+export interface IOrderExtraSnapshot {
+  ingredientId: Types.ObjectId;
+  name: string;
+  price: number;
+}
+
 export interface IOrderItem {
   productId: Types.ObjectId;
   name: string;
   price: number;
   quantity: number;
+  selectedExtras: IOrderExtraSnapshot[];
   totalPrice: number;
 }
 
@@ -22,16 +30,29 @@ export interface IOrder extends Document {
   userId: Types.ObjectId;
   items: IOrderItem[];
   subtotal: number;
+  deliveryFee: number;
   total: number;
   status: OrderStatus;
   orderType: OrderType;
   paymentStatus: PaymentStatus;
-  deliveryType: 'PICKUP' | 'DELIVERY';
   deliveryAddress?: string;
+  deliveryCity?: string;
+  estimatedDeliveryMinutes?: number;
   estimatedDeliveryTime?: Date;
+  cancellationReason?: string;
+  cancelledAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const orderExtraSnapshotSchema = new Schema<IOrderExtraSnapshot>(
+  {
+    ingredientId: { type: Schema.Types.ObjectId, ref: 'Ingredient', required: true },
+    name: { type: String, required: true },
+    price: { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
+);
 
 const orderItemSchema = new Schema<IOrderItem>(
   {
@@ -39,6 +60,7 @@ const orderItemSchema = new Schema<IOrderItem>(
     name: { type: String, required: true },
     price: { type: Number, required: true, min: 0 },
     quantity: { type: Number, required: true, min: 1 },
+    selectedExtras: { type: [orderExtraSnapshotSchema], default: [] },
     totalPrice: { type: Number, required: true, min: 0 },
   },
   { _id: false }
@@ -54,11 +76,12 @@ const orderSchema = new Schema<IOrder>(
     },
     items: { type: [orderItemSchema], required: true },
     subtotal: { type: Number, required: true, min: 0 },
+    deliveryFee: { type: Number, required: true, min: 0, default: 0 },
     total: { type: Number, required: true, min: 0 },
     status: {
       type: String,
       enum: Object.values(OrderStatus),
-      default: OrderStatus.PENDING,
+      default: OrderStatus.RECEIVED,
     },
     orderType: {
       type: String,
@@ -70,15 +93,23 @@ const orderSchema = new Schema<IOrder>(
       enum: Object.values(PaymentStatus),
       default: PaymentStatus.PENDING,
     },
-    deliveryType: {
-      type: String,
-      enum: ['PICKUP', 'DELIVERY'],
-      default: 'PICKUP',
-    },
     deliveryAddress: {
       type: String,
     },
+    deliveryCity: {
+      type: String,
+    },
+    estimatedDeliveryMinutes: {
+      type: Number,
+      min: 0,
+    },
     estimatedDeliveryTime: {
+      type: Date,
+    },
+    cancellationReason: {
+      type: String,
+    },
+    cancelledAt: {
       type: Date,
     },
   },

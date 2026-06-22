@@ -35,7 +35,6 @@ export function initSocket(httpServer: HttpServer): Server {
   });
 
   io.on('connection', (socket) => {
-    console.log("SOCKET CONNECTED:", socket.id);
     const user = socket.data.user as JwtPayload | undefined;
     if (user) {
       socket.join(Rooms.user(user.userId));

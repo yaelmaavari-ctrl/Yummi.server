@@ -119,6 +119,18 @@ async function cleanupTestSpecialDays(): Promise<void> {
   await doc.save();
 }
 
+/** Restore weekly schedule after tests (Sunday open, Saturday closed). */
+async function restoreWeeklySchedule(): Promise<void> {
+  const doc = await BusinessHours.findOne();
+  if (!doc) return;
+
+  doc.weeklySchedule = fullWeeklySchedule({ openTime: '09:00', closeTime: '22:00' }).map((d) =>
+    d.dayOfWeek === 6 ? { ...d, isClosed: true } : { ...d, isClosed: false }
+  );
+  doc.markModified('weeklySchedule');
+  await doc.save();
+}
+
 async function runTests(): Promise<void> {
   console.log('\n=== Business Hours Integration Tests ===\n');
 
@@ -323,6 +335,7 @@ async function main(): Promise<void> {
     await runTests();
   } finally {
     await cleanupTestSpecialDays();
+    await restoreWeeklySchedule();
     await mongoose.disconnect();
   }
 }

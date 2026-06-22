@@ -1,23 +1,55 @@
 import { Types } from 'mongoose';
 import { Cart } from '../models/cart.model';
-import { Order, IOrder } from '../models/order.model';
+import { Order, IOrder, IOrderExtraSnapshot } from '../models/order.model';
 import { OrderStatus, OrderType } from '../types';
 import { ApiError } from '../utils/ApiError';
 import { cartService } from './cart.service';
 import { notificationService } from './notification.service';
+import { businessHoursService } from './businessHours.service';
+import { deliveryZoneService } from './deliveryZone.service';
 import { emitEvent, Rooms, SocketEvents, SocketEvent } from '../sockets/events';
+import { computeExtraUnitPrices, computeLineTotal } from '../utils/extrasPricing';
 
-/**
- * Shape expected from a populated Product document.
- * Developer A owns the Product model; once they add name/price these fields
- * will resolve naturally. The cast below keeps TypeScript happy in the meantime.
- */
 interface PopulatedProduct {
-  _id: unknown;
+  _id: Types.ObjectId;
   name?: string;
   price?: number;
+  freeExtrasCount?: number;
+  pricePerExtra?: number;
   isAvailable: boolean;
   isDeleted: boolean;
+}
+
+interface PopulatedIngredient {
+  _id: Types.ObjectId;
+  name: string;
+}
+
+interface PopulatedCartItem {
+  productId: PopulatedProduct;
+  quantity: number;
+  selectedExtras: PopulatedIngredient[];
+}
+
+function buildExtraSnapshots(
+  extras: PopulatedIngredient[],
+  freeExtrasCount: number,
+  pricePerExtra: number
+): IOrderExtraSnapshot[] {
+  const sorted = [...extras].sort((a, b) => a._id.toString().localeCompare(b._id.toString()));
+  const prices = computeExtraUnitPrices(sorted.length, freeExtrasCount, pricePerExtra);
+
+  return sorted.map((extra, index) => ({
+    ingredientId: extra._id,
+    name: extra.name,
+    price: prices[index] ?? 0,
+  }));
+}
+
+export interface CreateOrderInput {
+  orderType?: OrderType;
+  deliveryAddress?: string;
+  deliveryCity?: string;
 }
 
 const KITCHEN_STATUSES: OrderStatus[] = [
@@ -86,9 +118,7 @@ export const orderService = {
 
     const allowedNext = ALLOWED_TRANSITIONS[order.status];
     if (!allowedNext.includes(status)) {
-      throw ApiError.badRequest(
-        `Invalid status transition from ${order.status} to ${status}`
-      );
+      throw ApiError.badRequest(`Invalid status transition from ${order.status} to ${status}`);
     }
 
     order.status = status;
@@ -99,14 +129,17 @@ export const orderService = {
     // Emit the canonical status-specific event
     const socketEvent = STATUS_TO_SOCKET_EVENT[status];
     if (socketEvent) {
-      console.log("EMIT TEST:", socketEvent, order.userId.toString());
       emitEvent(socketEvent, order, userRoom);
     }
 
     // Recalculate estimated delivery time when kitchen starts preparing a delivery order
-    if (status === OrderStatus.IN_PREPARATION && order.deliveryType === 'DELIVERY') {
+    if (
+      status === OrderStatus.IN_PREPARATION &&
+      order.orderType === OrderType.DELIVERY &&
+      order.estimatedDeliveryMinutes
+    ) {
       order.estimatedDeliveryTime = new Date(
-        Date.now() + 30 * 60 * 1000 + Math.random() * 30 * 60 * 1000
+        Date.now() + order.estimatedDeliveryMinutes * 60 * 1000
       );
       await order.save();
       emitEvent(SocketEvents.ORDER_ESTIMATED_TIME_UPDATED, order, userRoom);
@@ -131,30 +164,49 @@ export const orderService = {
   /**
    * Creates an order from the authenticated user's current cart.
    * Snapshots product name/price at purchase time, then clears the cart.
+   *
+   * Enforces business rules:
+   * - Orders cannot be placed while the business is closed.
+   * - DELIVERY orders require a supported city (active delivery zone) and an address.
+   *   The zone's delivery fee and ETA are applied to the order.
    */
-  async createFromCart(
-    userId: string,
-    orderType: OrderType = OrderType.PICKUP,
-    deliveryType: 'PICKUP' | 'DELIVERY' = 'PICKUP',
-    deliveryAddress?: string
-  ): Promise<IOrder> {
+  async createFromCart(userId: string, input: CreateOrderInput = {}): Promise<IOrder> {
+    const orderType = input.orderType ?? OrderType.PICKUP;
+
+    const openStatus = await businessHoursService.isOpenNow();
+    if (!openStatus.isOpen) {
+      throw ApiError.badRequest(`The restaurant is currently closed. ${openStatus.reason}`);
+    }
+
     const cart = await Cart.findOne({ userId }).populate<{
-      items: { productId: PopulatedProduct; quantity: number }[];
-    }>('items.productId');
+      items: PopulatedCartItem[];
+    }>([{ path: 'items.productId' }, { path: 'items.selectedExtras' }]);
 
     if (!cart || cart.items.length === 0) {
       throw ApiError.badRequest('Cart is empty');
     }
 
-    const orderItems = cart.items.map(({ productId: product, quantity }) => {
+    const orderItems = cart.items.map(({ productId: product, quantity, selectedExtras }) => {
       const name = product.name ?? 'Unknown product';
       const price = product.price ?? 0;
+      const freeExtrasCount = product.freeExtrasCount ?? 0;
+      const pricePerExtra = product.pricePerExtra ?? 0;
+      const extras = (selectedExtras ?? []) as PopulatedIngredient[];
+      const extraSnapshots = buildExtraSnapshots(extras, freeExtrasCount, pricePerExtra);
+
       return {
-        productId: product._id as Types.ObjectId,
+        productId: product._id,
         name,
         price,
         quantity,
-        totalPrice: parseFloat((price * quantity).toFixed(2)),
+        selectedExtras: extraSnapshots,
+        totalPrice: computeLineTotal(
+          price,
+          extras.length,
+          quantity,
+          freeExtrasCount,
+          pricePerExtra
+        ),
       };
     });
 
@@ -162,19 +214,36 @@ export const orderService = {
       orderItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)
     );
 
-    const estimatedDeliveryTime =
-      deliveryType === 'DELIVERY'
-        ? new Date(Date.now() + 30 * 60 * 1000 + Math.random() * 30 * 60 * 1000)
-        : undefined;
+    let deliveryFee = 0;
+    let deliveryCity: string | undefined;
+    let estimatedDeliveryMinutes: number | undefined;
+    let estimatedDeliveryTime: Date | undefined;
+
+    if (orderType === OrderType.DELIVERY) {
+      if (!input.deliveryCity || !input.deliveryAddress) {
+        throw ApiError.badRequest('Delivery orders require a delivery city and address');
+      }
+
+      // Throws 404 if the city is not supported (no active delivery zone).
+      const zone = await deliveryZoneService.checkCity(input.deliveryCity);
+      deliveryFee = zone.deliveryPrice;
+      deliveryCity = zone.city;
+      estimatedDeliveryMinutes = zone.estimatedDeliveryMinutes;
+      estimatedDeliveryTime = new Date(Date.now() + estimatedDeliveryMinutes * 60 * 1000);
+    }
+
+    const total = parseFloat((subtotal + deliveryFee).toFixed(2));
 
     const order = await Order.create({
       userId,
       items: orderItems,
       subtotal,
-      total: subtotal,
+      deliveryFee,
+      total,
       orderType,
-      deliveryType,
-      deliveryAddress,
+      deliveryAddress: orderType === OrderType.DELIVERY ? input.deliveryAddress : undefined,
+      deliveryCity,
+      estimatedDeliveryMinutes,
       estimatedDeliveryTime,
     });
 
@@ -184,18 +253,38 @@ export const orderService = {
   },
 
   /**
-   * Updates the status of an order identified by orderId.
+   * Cancels an order on behalf of its owner.
+   * Per business rules, a customer may cancel only while the order is still
+   * RECEIVED, and a cancellation reason is mandatory.
    */
-  async updateStatus(orderId: string, status: OrderStatus): Promise<IOrder> {
-    const order = await Order.findByIdAndUpdate(
-      orderId,
-      { status },
-      { new: true, runValidators: true }
-    );
-
+  async cancelOrder(userId: string, orderId: string, reason: string): Promise<IOrder> {
+    const order = await Order.findById(orderId);
     if (!order) {
       throw ApiError.notFound('Order not found');
     }
+
+    if ((order.userId as Types.ObjectId).toString() !== userId) {
+      throw ApiError.forbidden('You can only cancel your own orders');
+    }
+
+    if (order.status !== OrderStatus.RECEIVED) {
+      throw ApiError.badRequest('Orders can only be cancelled while their status is RECEIVED');
+    }
+
+    order.status = OrderStatus.CANCELLED;
+    order.cancellationReason = reason;
+    order.cancelledAt = new Date();
+    await order.save();
+
+    const userRoom = Rooms.user(userId);
+    emitEvent(SocketEvents.ORDER_CANCELLED, order, userRoom);
+
+    await notificationService.create({
+      recipientId: userId,
+      type: 'ORDER_CANCELLED',
+      message: 'Your order has been cancelled',
+      orderId,
+    });
 
     return order;
   },

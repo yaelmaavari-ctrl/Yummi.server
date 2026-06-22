@@ -29,7 +29,7 @@ export interface PublicReview {
 interface OrderForReview {
   _id: Types.ObjectId;
   status: OrderStatus;
-  customer?: Types.ObjectId;
+  userId?: Types.ObjectId;
 }
 
 function toPublicReview(review: IReview): PublicReview {
@@ -55,7 +55,7 @@ async function create(customerId: string, input: CreateReviewInput): Promise<Pub
     throw ApiError.badRequest('Reviews can only be submitted for completed orders');
   }
 
-  if (order.customer && order.customer.toString() !== customerId) {
+  if (!order.userId || order.userId.toString() !== customerId) {
     throw ApiError.forbidden('You can only review your own orders');
   }
 
@@ -90,10 +90,7 @@ async function getById(
     throw ApiError.notFound('Review not found');
   }
 
-  if (
-    requesterRole !== UserRole.ADMIN &&
-    review.customer.toString() !== requesterId
-  ) {
+  if (requesterRole !== UserRole.ADMIN && review.customer.toString() !== requesterId) {
     throw ApiError.forbidden('You do not have permission to view this review');
   }
 

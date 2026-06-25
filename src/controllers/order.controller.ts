@@ -21,6 +21,11 @@ const getKitchenOrders = asyncHandler(async (_req: Request, res: Response) => {
   res.status(200).json({ success: true, data: { orders } });
 });
 
+const checkOrderIngredients = asyncHandler(async (req: Request, res: Response) => {
+  const check = await orderService.checkOrderIngredients(req.params['id'] as string);
+  res.status(200).json({ success: true, data: { check } });
+});
+
 const updateOrderStatus = asyncHandler(async (req: Request, res: Response) => {
   const { status } = req.body as { status: OrderStatus };
   const order = await orderService.updateOrderStatus(req.params['id'] as string, status);
@@ -67,6 +72,7 @@ export const orderController = {
   getAllOrders,
   getMyOrders,
   getKitchenOrders,
+  checkOrderIngredients,
   updateOrderStatus,
   createOrder,
   cancelOrder,

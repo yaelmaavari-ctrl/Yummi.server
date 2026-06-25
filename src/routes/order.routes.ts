@@ -28,6 +28,13 @@ router.get(
 router.get('/my', orderController.getMyOrders);
 
 router.get(
+  '/:id/ingredient-check',
+  authorize(UserRole.KITCHEN, UserRole.ADMIN),
+  validate(orderIdParamsSchema, 'params'),
+  orderController.checkOrderIngredients
+);
+
+router.get(
   '/',
   authorize(UserRole.KITCHEN, UserRole.DELIVERY, UserRole.ADMIN),
   orderController.getAllOrders

@@ -1,7 +1,9 @@
 import { Types } from 'mongoose';
 import { Cart } from '../models/cart.model';
+import { Ingredient } from '../models/ingredient.model';
+import { Product } from '../models/product.model';
 import { Order, IOrder, IOrderExtraSnapshot } from '../models/order.model';
-import { OrderStatus, OrderType } from '../types';
+import { IngredientStatus, OrderStatus, OrderType } from '../types';
 import { ApiError } from '../utils/ApiError';
 import { cartService } from './cart.service';
 import { notificationService } from './notification.service';
@@ -50,6 +52,26 @@ export interface CreateOrderInput {
   orderType?: OrderType;
   deliveryAddress?: string;
   deliveryCity?: string;
+}
+
+export interface MissingIngredientSummary {
+  id: string;
+  name: string;
+}
+
+export interface OrderIngredientCheckItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  missingBaseIngredients: MissingIngredientSummary[];
+  missingSelectedExtras: MissingIngredientSummary[];
+  canPrepare: boolean;
+}
+
+export interface OrderIngredientCheck {
+  orderId: string;
+  canPrepareOrder: boolean;
+  items: OrderIngredientCheckItem[];
 }
 
 const KITCHEN_STATUSES: OrderStatus[] = [
@@ -101,6 +123,85 @@ export const orderService = {
    */
   async getKitchenOrders(): Promise<IOrder[]> {
     return Order.find({ status: { $in: KITCHEN_STATUSES } }).sort({ createdAt: 1 });
+  },
+
+  /**
+   * Checks whether an order's line items can be prepared given current ingredient stock.
+   * Base ingredients come from the product recipe; selected extras come from the order snapshot.
+   */
+  async checkOrderIngredients(orderId: string): Promise<OrderIngredientCheck> {
+    const order = await Order.findById(orderId);
+    if (!order) {
+      throw ApiError.notFound('Order not found');
+    }
+
+    const productIds = order.items.map((item) => item.productId);
+    const products = await Product.find({ _id: { $in: productIds } });
+    const productMap = new Map(products.map((product) => [product._id.toString(), product]));
+
+    const ingredientIds = new Set<string>();
+    for (const item of order.items) {
+      const product = productMap.get(item.productId.toString());
+      for (const id of product?.ingredients ?? []) {
+        ingredientIds.add(id.toString());
+      }
+      for (const extra of item.selectedExtras) {
+        ingredientIds.add(extra.ingredientId.toString());
+      }
+    }
+
+    const ingredients = await Ingredient.find({ _id: { $in: [...ingredientIds] } });
+    const ingredientMap = new Map(
+      ingredients.map((ingredient) => [ingredient._id.toString(), ingredient])
+    );
+
+    const summarizeMissing = (ids: Types.ObjectId[]): MissingIngredientSummary[] => {
+      const missing: MissingIngredientSummary[] = [];
+      for (const id of ids) {
+        const ingredient = ingredientMap.get(id.toString());
+        if (!ingredient || ingredient.status !== IngredientStatus.AVAILABLE) {
+          missing.push({
+            id: id.toString(),
+            name: ingredient?.name ?? 'Unknown ingredient',
+          });
+        }
+      }
+      return missing;
+    };
+
+    const items: OrderIngredientCheckItem[] = order.items.map((item) => {
+      const product = productMap.get(item.productId.toString());
+      const missingBaseIngredients = summarizeMissing(product?.ingredients ?? []);
+      const missingSelectedExtras: MissingIngredientSummary[] = [];
+
+      for (const extra of item.selectedExtras) {
+        const ingredient = ingredientMap.get(extra.ingredientId.toString());
+        if (!ingredient || ingredient.status !== IngredientStatus.AVAILABLE) {
+          missingSelectedExtras.push({
+            id: extra.ingredientId.toString(),
+            name: ingredient?.name ?? extra.name,
+          });
+        }
+      }
+
+      const canPrepare =
+        missingBaseIngredients.length === 0 && missingSelectedExtras.length === 0;
+
+      return {
+        productId: item.productId.toString(),
+        productName: item.name,
+        quantity: item.quantity,
+        missingBaseIngredients,
+        missingSelectedExtras,
+        canPrepare,
+      };
+    });
+
+    return {
+      orderId,
+      canPrepareOrder: items.every((item) => item.canPrepare),
+      items,
+    };
   },
 
   /**

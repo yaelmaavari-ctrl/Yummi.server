@@ -3,6 +3,7 @@ import { Cart } from '../models/cart.model';
 import { Ingredient } from '../models/ingredient.model';
 import { Product } from '../models/product.model';
 import { Order, IOrder, IOrderExtraSnapshot } from '../models/order.model';
+import { User } from '../models/user.model';
 import { IngredientStatus, OrderStatus, OrderType } from '../types';
 import { ApiError } from '../utils/ApiError';
 import { cartService } from './cart.service';
@@ -50,8 +51,13 @@ function buildExtraSnapshots(
 
 export interface CreateOrderInput {
   orderType?: OrderType;
+  useDefaultAddress?: boolean;
   deliveryAddress?: string;
   deliveryCity?: string;
+}
+
+function formatDefaultDeliveryAddress(street: string, houseNumber: string): string {
+  return `${street} ${houseNumber}`.trim();
 }
 
 export interface MissingIngredientSummary {
@@ -78,6 +84,9 @@ const KITCHEN_STATUSES: OrderStatus[] = [
   OrderStatus.RECEIVED,
   OrderStatus.APPROVED,
   OrderStatus.IN_PREPARATION,
+];
+
+const DELIVERY_STATUSES: OrderStatus[] = [
   OrderStatus.READY,
 ];
 
@@ -120,10 +129,18 @@ export const orderService = {
   },
 
   /**
-   * Kitchen queue: active orders awaiting preparation, oldest first (FIFO).
+   * Kitchen queue: orders awaiting preparation (RECEIVED → IN_PREPARATION), oldest first (FIFO).
+   * READY orders are handed off to the delivery queue.
    */
   async getKitchenOrders(): Promise<IOrder[]> {
     return Order.find({ status: { $in: KITCHEN_STATUSES } }).sort({ createdAt: 1 });
+  },
+
+  /**
+   * Delivery queue: orders that are READY and waiting for pickup / delivery, oldest first.
+   */
+  async getDeliveryOrders(): Promise<IOrder[]> {
+    return Order.find({ status: { $in: DELIVERY_STATUSES } }).sort({ createdAt: 1 });
   },
 
   /**
@@ -228,10 +245,15 @@ export const orderService = {
 
     const userRoom = Rooms.user((order.userId as Types.ObjectId).toString());
 
-    // Emit the canonical status-specific event to the customer, kitchen, and admin.
+    // Emit the canonical status-specific event.
+    // ORDER_READY also goes to the delivery room so workers see new orders in real time.
     const socketEvent = STATUS_TO_SOCKET_EVENT[status];
     if (socketEvent) {
-      emitEvent(socketEvent, order, [userRoom, Rooms.kitchen(), Rooms.admin()]);
+      const rooms = [userRoom, Rooms.kitchen(), Rooms.admin()];
+      if (status === OrderStatus.READY) {
+        rooms.push(Rooms.delivery());
+      }
+      emitEvent(socketEvent, order, rooms);
     }
 
     // Recalculate estimated delivery time when kitchen starts preparing a delivery order
@@ -320,15 +342,37 @@ export const orderService = {
     let deliveryCity: string | undefined;
     let estimatedDeliveryMinutes: number | undefined;
 
+    let deliveryAddress: string | undefined;
+
     if (orderType === OrderType.DELIVERY) {
-      if (!input.deliveryCity || !input.deliveryAddress) {
-        throw ApiError.badRequest('Delivery orders require a delivery city and address');
+      let requestedCity: string;
+      let requestedAddress: string;
+
+      if (input.useDefaultAddress) {
+        const user = await User.findById(userId).select('defaultAddress');
+        if (!user?.defaultAddress) {
+          throw ApiError.badRequest('No saved delivery address on your profile');
+        }
+
+        requestedCity = user.defaultAddress.city;
+        requestedAddress = formatDefaultDeliveryAddress(
+          user.defaultAddress.street,
+          user.defaultAddress.houseNumber
+        );
+      } else {
+        if (!input.deliveryCity || !input.deliveryAddress) {
+          throw ApiError.badRequest('Delivery orders require a delivery city and address');
+        }
+
+        requestedCity = input.deliveryCity;
+        requestedAddress = input.deliveryAddress;
       }
 
       // Throws 404 if the city is not supported (no active delivery zone).
-      const zone = await deliveryZoneService.checkCity(input.deliveryCity);
+      const zone = await deliveryZoneService.checkCity(requestedCity);
       deliveryFee = zone.deliveryPrice;
       deliveryCity = zone.city;
+      deliveryAddress = requestedAddress;
       estimatedDeliveryMinutes = zone.estimatedDeliveryMinutes;
     }
 
@@ -341,7 +385,7 @@ export const orderService = {
       deliveryFee,
       total,
       orderType,
-      deliveryAddress: orderType === OrderType.DELIVERY ? input.deliveryAddress : undefined,
+      deliveryAddress,
       deliveryCity,
       estimatedDeliveryMinutes,
     });

@@ -25,6 +25,12 @@ router.get(
   orderController.getKitchenOrders
 );
 
+router.get(
+  '/delivery',
+  authorize(UserRole.DELIVERY, UserRole.ADMIN),
+  orderController.getDeliveryOrders
+);
+
 router.get('/my', orderController.getMyOrders);
 
 router.get(

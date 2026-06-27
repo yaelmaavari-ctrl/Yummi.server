@@ -78,6 +78,7 @@ const KITCHEN_STATUSES: OrderStatus[] = [
   OrderStatus.RECEIVED,
   OrderStatus.APPROVED,
   OrderStatus.IN_PREPARATION,
+  OrderStatus.READY,
 ];
 
 /** Allowed status transitions in the order lifecycle. */

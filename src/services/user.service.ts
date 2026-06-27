@@ -64,12 +64,17 @@ async function createEmployee(input: CreateEmployeeInput): Promise<PublicUser> {
 
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
 
+  // Every user in the system always has the CUSTOMER role so they can also order as a customer.
+  const roles = input.roles.includes(UserRole.CUSTOMER)
+    ? input.roles
+    : [UserRole.CUSTOMER, ...input.roles];
+
   const user = await User.create({
     fullName: input.fullName,
     email,
     passwordHash,
     phone: input.phone,
-    roles: input.roles,
+    roles,
     defaultAddress: input.defaultAddress,
   });
 
@@ -98,7 +103,12 @@ async function updateRoles(id: string, input: UpdateRolesInput): Promise<PublicU
     throw ApiError.notFound('User not found');
   }
 
-  user.roles = input.roles;
+  // CUSTOMER is always required; add it back silently if omitted.
+  const roles = input.roles.includes(UserRole.CUSTOMER)
+    ? input.roles
+    : [UserRole.CUSTOMER, ...input.roles];
+
+  user.roles = roles;
   await user.save();
 
   return toPublicUser(user);
@@ -124,6 +134,10 @@ async function removeRole(id: string, role: UserRole): Promise<PublicUser> {
   const user = await User.findById(id);
   if (!user) {
     throw ApiError.notFound('User not found');
+  }
+
+  if (role === UserRole.CUSTOMER) {
+    throw ApiError.badRequest('The CUSTOMER role cannot be removed — every user must retain it');
   }
 
   if (!user.roles.includes(role)) {

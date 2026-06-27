@@ -1,10 +1,11 @@
 import { emitEvent, Rooms, SocketEvents } from './events';
 
 /**
- * Emits 'order:created' to the owner's user room only.
+ * Emits 'order:created' to the order owner's user room AND to all
+ * connected kitchen workers so the kitchen queue updates in real time.
  */
 export function emitOrderCreated(userId: string, order: unknown): void {
-  emitEvent(SocketEvents.ORDER_CREATED, order, Rooms.user(userId));
+  emitEvent(SocketEvents.ORDER_CREATED, order, [Rooms.user(userId), Rooms.kitchen()]);
 }
 
 /**

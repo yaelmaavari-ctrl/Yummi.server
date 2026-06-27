@@ -227,10 +227,10 @@ export const orderService = {
 
     const userRoom = Rooms.user((order.userId as Types.ObjectId).toString());
 
-    // Emit the canonical status-specific event
+    // Emit the canonical status-specific event to the customer, kitchen, and admin.
     const socketEvent = STATUS_TO_SOCKET_EVENT[status];
     if (socketEvent) {
-      emitEvent(socketEvent, order, userRoom);
+      emitEvent(socketEvent, order, [userRoom, Rooms.kitchen(), Rooms.admin()]);
     }
 
     // Recalculate estimated delivery time when kitchen starts preparing a delivery order
@@ -243,7 +243,7 @@ export const orderService = {
         Date.now() + order.estimatedDeliveryMinutes * 60 * 1000
       );
       await order.save();
-      emitEvent(SocketEvents.ORDER_ESTIMATED_TIME_UPDATED, order, userRoom);
+      emitEvent(SocketEvents.ORDER_ESTIMATED_TIME_UPDATED, order, [userRoom, Rooms.kitchen(), Rooms.admin()]);
     }
 
     // Persist + emit a notification for every status change; READY is highlighted
@@ -318,7 +318,6 @@ export const orderService = {
     let deliveryFee = 0;
     let deliveryCity: string | undefined;
     let estimatedDeliveryMinutes: number | undefined;
-    let estimatedDeliveryTime: Date | undefined;
 
     if (orderType === OrderType.DELIVERY) {
       if (!input.deliveryCity || !input.deliveryAddress) {
@@ -330,7 +329,6 @@ export const orderService = {
       deliveryFee = zone.deliveryPrice;
       deliveryCity = zone.city;
       estimatedDeliveryMinutes = zone.estimatedDeliveryMinutes;
-      estimatedDeliveryTime = new Date(Date.now() + estimatedDeliveryMinutes * 60 * 1000);
     }
 
     const total = parseFloat((subtotal + deliveryFee).toFixed(2));
@@ -345,7 +343,6 @@ export const orderService = {
       deliveryAddress: orderType === OrderType.DELIVERY ? input.deliveryAddress : undefined,
       deliveryCity,
       estimatedDeliveryMinutes,
-      estimatedDeliveryTime,
     });
 
     await cartService.clearCart(userId);
@@ -377,8 +374,11 @@ export const orderService = {
     order.cancelledAt = new Date();
     await order.save();
 
-    const userRoom = Rooms.user(userId);
-    emitEvent(SocketEvents.ORDER_CANCELLED, order, userRoom);
+    emitEvent(SocketEvents.ORDER_CANCELLED, order, [
+      Rooms.user(userId),
+      Rooms.kitchen(),
+      Rooms.admin(),
+    ]);
 
     await notificationService.create({
       recipientId: userId,

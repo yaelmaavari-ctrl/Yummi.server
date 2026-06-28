@@ -21,6 +21,16 @@ const getKitchenOrders = asyncHandler(async (_req: Request, res: Response) => {
   res.status(200).json({ success: true, data: { orders } });
 });
 
+const getDeliveryOrders = asyncHandler(async (_req: Request, res: Response) => {
+  const orders = await orderService.getDeliveryOrders();
+  res.status(200).json({ success: true, data: { orders } });
+});
+
+const checkOrderIngredients = asyncHandler(async (req: Request, res: Response) => {
+  const check = await orderService.checkOrderIngredients(req.params['id'] as string);
+  res.status(200).json({ success: true, data: { check } });
+});
+
 const updateOrderStatus = asyncHandler(async (req: Request, res: Response) => {
   const { status } = req.body as { status: OrderStatus };
   const order = await orderService.updateOrderStatus(req.params['id'] as string, status);
@@ -28,13 +38,15 @@ const updateOrderStatus = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const createOrder = asyncHandler(async (req: Request, res: Response) => {
-  const { orderType, deliveryAddress, deliveryCity } = req.body as {
+  const { orderType, useDefaultAddress, deliveryAddress, deliveryCity } = req.body as {
     orderType?: OrderType;
+    useDefaultAddress?: boolean;
     deliveryAddress?: string;
     deliveryCity?: string;
   };
   const order = await orderService.createFromCart(req.user!.userId, {
     orderType,
+    useDefaultAddress,
     deliveryAddress,
     deliveryCity,
   });
@@ -67,6 +79,8 @@ export const orderController = {
   getAllOrders,
   getMyOrders,
   getKitchenOrders,
+  getDeliveryOrders,
+  checkOrderIngredients,
   updateOrderStatus,
   createOrder,
   cancelOrder,

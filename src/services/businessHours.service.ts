@@ -51,6 +51,18 @@ function timeToMinutes(t: string): number {
   return h * 60 + m;
 }
 
+/**
+ * Returns true when the current time falls within [openTime, closeTime).
+ * Handles overnight ranges (e.g. 22:00–01:00) where closeTime < openTime.
+ */
+function isOpenInRange(now: number, open: number, close: number): boolean {
+  if (close <= open) {
+    // Overnight span: open if we're after opening OR before closing next day
+    return now >= open || now < close;
+  }
+  return now >= open && now < close;
+}
+
 /** Returns the singleton document, creating it with defaults if absent. */
 async function findOrCreate(): Promise<IBusinessHours> {
   let doc = await BusinessHours.findOne();
@@ -150,7 +162,7 @@ async function isOpenNow(): Promise<IsOpenResult> {
     const open = timeToMinutes(specialDay.openTime!);
     const close = timeToMinutes(specialDay.closeTime!);
     const now = timeToMinutes(currentTime);
-    const isOpen = now >= open && now < close;
+    const isOpen = isOpenInRange(now, open, close);
 
     return {
       isOpen,
@@ -185,15 +197,18 @@ async function isOpenNow(): Promise<IsOpenResult> {
   const open = timeToMinutes(dayEntry.openTime);
   const close = timeToMinutes(dayEntry.closeTime);
   const now = timeToMinutes(currentTime);
-  const isOpen = now >= open && now < close;
+  const isOpen = isOpenInRange(now, open, close);
+
+  const overnight = close <= open;
+  const notOpenYet = !overnight && now < open;
 
   return {
     isOpen,
     reason: isOpen
       ? `Open (${dayEntry.openTime}–${dayEntry.closeTime})`
-      : now < open
+      : notOpenYet
         ? `Not open yet — opens at ${dayEntry.openTime}`
-        : `Closed for today — reopens tomorrow`,
+        : `Closed for today — reopens at ${dayEntry.openTime}`,
     currentTime,
     todaySchedule: dayEntry,
   };

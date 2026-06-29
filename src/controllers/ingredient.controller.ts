@@ -2,15 +2,17 @@ import { Request, Response } from 'express';
 import { ingredientService } from '../services/ingredient.service';
 import { asyncHandler } from '../utils/asyncHandler';
 import { emitEvent, SocketEvents } from '../sockets/events';
-import { IngredientStatus } from '../types';
+import { IngredientStatus, UserRole } from '../types';
 
-const list = asyncHandler(async (_req: Request, res: Response) => {
-  const ingredients = await ingredientService.list();
+const list = asyncHandler(async (req: Request, res: Response) => {
+  const includeUsage = req.user!.activeRole === UserRole.ADMIN;
+  const ingredients = await ingredientService.list(includeUsage);
   res.status(200).json({ success: true, data: { ingredients } });
 });
 
 const getById = asyncHandler(async (req: Request, res: Response) => {
-  const ingredient = await ingredientService.getById(req.params['id'] as string);
+  const includeUsage = req.user!.activeRole === UserRole.ADMIN;
+  const ingredient = await ingredientService.getById(req.params['id'] as string, includeUsage);
   res.status(200).json({ success: true, data: { ingredient } });
 });
 
@@ -42,6 +44,15 @@ const setStatus = asyncHandler(async (req: Request, res: Response) => {
   res.status(200).json({ success: true, data: { ingredient } });
 });
 
+const reportShortage = asyncHandler(async (req: Request, res: Response) => {
+  const ingredient = await ingredientService.reportShortage(
+    req.params['id'] as string,
+    req.user!.userId,
+    req.body.message as string | undefined
+  );
+  res.status(200).json({ success: true, data: { ingredient } });
+});
+
 const remove = asyncHandler(async (req: Request, res: Response) => {
   const ingredient = await ingredientService.remove(req.params['id'] as string);
   res.status(200).json({ success: true, data: { ingredient } });
@@ -53,5 +64,6 @@ export const ingredientController = {
   create,
   update,
   setStatus,
+  reportShortage,
   remove,
 };

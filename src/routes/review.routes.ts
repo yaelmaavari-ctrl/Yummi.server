@@ -17,7 +17,7 @@ router.post(
   reviewController.create
 );
 
-router.get('/', authorize(UserRole.ADMIN), reviewController.list);
+router.get('/', reviewController.list);
 
 router.get(
   '/:id',

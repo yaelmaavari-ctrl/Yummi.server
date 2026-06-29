@@ -20,7 +20,17 @@ export function validate(schema: ObjectSchema, part: RequestPart = 'body') {
       return next(ApiError.badRequest('Validation failed', details));
     }
 
-    req[part] = value;
+    // Express 5 defines req.query as a read-only getter; use defineProperty to replace it.
+    if (part === 'query') {
+      Object.defineProperty(req, 'query', {
+        value,
+        writable: true,
+        configurable: true,
+        enumerable: true,
+      });
+    } else {
+      req[part] = value;
+    }
     return next();
   };
 }

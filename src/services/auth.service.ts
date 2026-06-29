@@ -32,6 +32,12 @@ export interface LoginInput {
   activeRole?: UserRole;
 }
 
+export interface UpdateProfileInput {
+  fullName?: string;
+  phone?: string;
+  defaultAddress?: IDefaultAddress | null;
+}
+
 export interface AuthResult {
   user: PublicUser;
   token: string;
@@ -155,9 +161,35 @@ async function switchActiveRole(userId: string, activeRole: UserRole): Promise<A
   };
 }
 
+async function updateProfile(userId: string, input: UpdateProfileInput): Promise<PublicUser> {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw ApiError.notFound('User not found');
+  }
+
+  assertUserIsActive(user);
+
+  if (input.fullName !== undefined) {
+    user.fullName = input.fullName;
+  }
+
+  if (input.phone !== undefined) {
+    user.phone = input.phone;
+  }
+
+  if (input.defaultAddress !== undefined) {
+    user.defaultAddress = input.defaultAddress ?? undefined;
+  }
+
+  await user.save();
+
+  return toPublicUser(user);
+}
+
 export const authService = {
   register,
   login,
   getMe,
   switchActiveRole,
+  updateProfile,
 };

@@ -1,7 +1,9 @@
 import { Types } from 'mongoose';
 import { Cart } from '../models/cart.model';
+import { Ingredient } from '../models/ingredient.model';
 import { Order, IOrder, IOrderExtraSnapshot } from '../models/order.model';
-import { OrderStatus, OrderType } from '../types';
+import { Product } from '../models/product.model';
+import { OrderStatus, OrderType, IngredientStatus } from '../types';
 import { ApiError } from '../utils/ApiError';
 import { cartService } from './cart.service';
 import { notificationService } from './notification.service';
@@ -50,6 +52,26 @@ export interface CreateOrderInput {
   orderType?: OrderType;
   deliveryAddress?: string;
   deliveryCity?: string;
+}
+
+export interface MissingIngredientSummary {
+  id: string;
+  name: string;
+}
+
+export interface OrderIngredientCheckItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  missingBaseIngredients: MissingIngredientSummary[];
+  missingSelectedExtras: MissingIngredientSummary[];
+  canPrepare: boolean;
+}
+
+export interface OrderIngredientCheck {
+  orderId: string;
+  canPrepareOrder: boolean;
+  items: OrderIngredientCheckItem[];
 }
 
 const KITCHEN_STATUSES: OrderStatus[] = [
@@ -101,6 +123,65 @@ export const orderService = {
    */
   async getKitchenOrders(): Promise<IOrder[]> {
     return Order.find({ status: { $in: KITCHEN_STATUSES } }).sort({ createdAt: 1 });
+  },
+
+  /**
+   * Checks whether all base ingredients and selected extras for an order are available.
+   */
+  async checkOrderIngredients(orderId: string): Promise<OrderIngredientCheck> {
+    const order = await Order.findById(orderId);
+    if (!order) {
+      throw ApiError.notFound('Order not found');
+    }
+
+    const items: OrderIngredientCheckItem[] = [];
+
+    for (const orderItem of order.items) {
+      const product = await Product.findOne({
+        _id: orderItem.productId,
+        isDeleted: false,
+      });
+
+      if (!product) {
+        items.push({
+          productId: orderItem.productId.toString(),
+          productName: orderItem.name,
+          quantity: orderItem.quantity,
+          missingBaseIngredients: [{ id: orderItem.productId.toString(), name: 'Product no longer exists' }],
+          missingSelectedExtras: [],
+          canPrepare: false,
+        });
+        continue;
+      }
+
+      const baseIngredients = await Ingredient.find({ _id: { $in: product.ingredients } });
+      const missingBaseIngredients = baseIngredients
+        .filter((ingredient) => ingredient.status !== IngredientStatus.AVAILABLE)
+        .map((ingredient) => ({ id: ingredient._id.toString(), name: ingredient.name }));
+
+      const selectedExtraIds = orderItem.selectedExtras.map((extra) => extra.ingredientId);
+      const selectedExtras = await Ingredient.find({ _id: { $in: selectedExtraIds } });
+      const missingSelectedExtras = selectedExtras
+        .filter((ingredient) => ingredient.status !== IngredientStatus.AVAILABLE)
+        .map((ingredient) => ({ id: ingredient._id.toString(), name: ingredient.name }));
+
+      const canPrepare = missingBaseIngredients.length === 0 && missingSelectedExtras.length === 0;
+
+      items.push({
+        productId: product._id.toString(),
+        productName: orderItem.name,
+        quantity: orderItem.quantity,
+        missingBaseIngredients,
+        missingSelectedExtras,
+        canPrepare,
+      });
+    }
+
+    return {
+      orderId,
+      canPrepareOrder: items.every((item) => item.canPrepare),
+      items,
+    };
   },
 
   /**

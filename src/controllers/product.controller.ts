@@ -4,6 +4,21 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { emitEvent, SocketEvents } from '../sockets/events';
 import { UserRole } from '../types';
 
+const list = asyncHandler(async (req: Request, res: Response) => {
+  const includeUnavailable =
+    req.user!.activeRole === UserRole.ADMIN || req.user!.activeRole === UserRole.KITCHEN;
+  const includeIngredientDetails = includeUnavailable;
+
+  const products = await productService.list({
+    search: req.query['search'] as string | undefined,
+    categoryId: req.query['categoryId'] as string | undefined,
+    includeUnavailable,
+    includeIngredientDetails,
+  });
+
+  res.status(200).json({ success: true, data: { products } });
+});
+
 const create = asyncHandler(async (req: Request, res: Response) => {
   const product = await productService.create(req.body);
   res.status(201).json({ success: true, data: { product } });
@@ -37,12 +52,17 @@ const softDelete = asyncHandler(async (req: Request, res: Response) => {
 const getById = asyncHandler(async (req: Request, res: Response) => {
   const includeUnavailable =
     req.user!.activeRole === UserRole.ADMIN || req.user!.activeRole === UserRole.KITCHEN;
+  const includeIngredientDetails = includeUnavailable;
 
-  const product = await productService.getById(req.params['id'] as string, { includeUnavailable });
+  const product = await productService.getById(req.params['id'] as string, {
+    includeUnavailable,
+    includeIngredientDetails,
+  });
   res.status(200).json({ success: true, data: { product } });
 });
 
 export const productController = {
+  list,
   create,
   update,
   setAvailability,

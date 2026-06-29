@@ -1,7 +1,12 @@
 import Joi from 'joi';
 
-const objectId = Joi.string();
+const objectId = Joi.string().hex().length(24);
 const objectIdList = Joi.array().items(objectId);
+
+export const listProductsQuerySchema = Joi.object({
+  search: Joi.string().trim().max(100).optional().allow(''),
+  categoryId: objectId.optional(),
+});
 
 export const createProductSchema = Joi.object({
   name: Joi.string().trim().min(2).max(150).required(),
@@ -36,5 +41,5 @@ export const setAvailabilitySchema = Joi.object({
 });
 
 export const productIdParamSchema = Joi.object({
-  id: Joi.string().required(),
+  id: objectId.required(),
 });

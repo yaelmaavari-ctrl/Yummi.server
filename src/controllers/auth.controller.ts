@@ -33,9 +33,19 @@ const switchActiveRole = asyncHandler(async (req: Request, res: Response) => {
   res.status(200).json({ success: true, data: result });
 });
 
+const updateProfile = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) {
+    throw ApiError.unauthorized('Authentication required');
+  }
+
+  const user = await authService.updateProfile(req.user.userId, req.body);
+  res.status(200).json({ success: true, data: { user } });
+});
+
 export const authController = {
   register,
   login,
   getMe,
   switchActiveRole,
+  updateProfile,
 };

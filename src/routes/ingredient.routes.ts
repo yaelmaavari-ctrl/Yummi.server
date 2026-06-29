@@ -7,6 +7,7 @@ import {
   createIngredientSchema,
   updateIngredientSchema,
   setStatusSchema,
+  reportShortageSchema,
   ingredientIdParamSchema,
 } from '../validations/ingredient.validation';
 import { UserRole } from '../types';
@@ -14,7 +15,6 @@ import { UserRole } from '../types';
 const router = Router();
 
 const catalogViewRoles = [UserRole.CUSTOMER, UserRole.KITCHEN, UserRole.DELIVERY, UserRole.ADMIN];
-
 const kitchenRoles = [UserRole.KITCHEN, UserRole.ADMIN];
 
 router.use(authenticate);
@@ -41,6 +41,14 @@ router.patch(
   validate(ingredientIdParamSchema, 'params'),
   validate(setStatusSchema),
   ingredientController.setStatus
+);
+
+router.post(
+  '/:id/report-shortage',
+  authorize(...kitchenRoles),
+  validate(ingredientIdParamSchema, 'params'),
+  validate(reportShortageSchema),
+  ingredientController.reportShortage
 );
 
 router.patch(

@@ -8,6 +8,7 @@ import {
   updateProductSchema,
   setAvailabilitySchema,
   productIdParamSchema,
+  listProductsQuerySchema,
 } from '../validations/product.validation';
 import { UserRole } from '../types';
 
@@ -16,6 +17,13 @@ const router = Router();
 const catalogViewRoles = [UserRole.CUSTOMER, UserRole.KITCHEN, UserRole.DELIVERY, UserRole.ADMIN];
 
 router.use(authenticate);
+
+router.get(
+  '/',
+  authorize(...catalogViewRoles),
+  validate(listProductsQuerySchema, 'query'),
+  productController.list
+);
 
 router.post(
   '/',

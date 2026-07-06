@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { Category, ICategory } from '../models/category.model';
 import { Product } from '../models/product.model';
 import { ApiError } from '../utils/ApiError';
@@ -114,7 +115,7 @@ async function softDelete(id: string): Promise<PublicCategory> {
   const category = await getActiveById(id);
 
   const activeProductCount = await Product.countDocuments({
-    categories: id,
+    categories: new Types.ObjectId(id),
     isDeleted: false,
   });
 

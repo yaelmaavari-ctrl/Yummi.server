@@ -2,8 +2,7 @@ import { Types } from 'mongoose';
 import { Review, IReview } from '../models/review.model';
 import { Order } from '../models/order.model';
 import { ApiError } from '../utils/ApiError';
-import { OrderStatus } from '../types';
-import { UserRole } from '../types';
+import { OrderStatus, UserRole } from '../types';
 
 export interface CreateReviewInput {
   orderId: string;
@@ -15,28 +14,48 @@ export interface PublicReview {
   id: string;
   orderId: string;
   customerId: string;
+  customerName: string;
   rating: number;
   comment?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-/**
- * Shape of an order document as needed by review logic.
- * The full IOrder interface is a stub (Developer B); we cast lean results
- * to this local type to access the `customer` field once orders are populated.
- */
 interface OrderForReview {
   _id: Types.ObjectId;
   status: OrderStatus;
   userId?: Types.ObjectId;
 }
 
-function toPublicReview(review: IReview): PublicReview {
+interface PopulatedCustomer {
+  _id: Types.ObjectId;
+  fullName: string;
+}
+
+type ReviewDocument = IReview & {
+  customer: PopulatedCustomer | Types.ObjectId;
+};
+
+function resolveCustomerName(customer: PopulatedCustomer | Types.ObjectId): string {
+  if (customer instanceof Types.ObjectId) {
+    return 'Customer';
+  }
+  return customer.fullName;
+}
+
+function resolveCustomerId(customer: PopulatedCustomer | Types.ObjectId): string {
+  if (customer instanceof Types.ObjectId) {
+    return customer.toString();
+  }
+  return customer._id.toString();
+}
+
+function toPublicReview(review: ReviewDocument): PublicReview {
   return {
     id: review._id.toString(),
     orderId: review.order.toString(),
-    customerId: review.customer.toString(),
+    customerId: resolveCustomerId(review.customer),
+    customerName: resolveCustomerName(review.customer),
     rating: review.rating,
     comment: review.comment,
     createdAt: review.createdAt,
@@ -71,12 +90,19 @@ async function create(customerId: string, input: CreateReviewInput): Promise<Pub
     comment: input.comment?.trim() || undefined,
   });
 
-  return toPublicReview(review);
+  const populated = (await Review.findById(review._id)
+    .populate('customer', 'fullName')
+    .lean()) as ReviewDocument | null;
+
+  return toPublicReview(populated ?? (review as ReviewDocument));
 }
 
 async function list(): Promise<PublicReview[]> {
-  const reviews = await Review.find().sort({ createdAt: -1 });
-  return reviews.map(toPublicReview);
+  const reviews = await Review.find()
+    .populate('customer', 'fullName')
+    .sort({ createdAt: -1 });
+
+  return reviews.map((review) => toPublicReview(review as ReviewDocument));
 }
 
 async function getById(
@@ -84,7 +110,10 @@ async function getById(
   requesterId: string,
   requesterRole: UserRole
 ): Promise<PublicReview> {
-  const review = await Review.findById(reviewId);
+  const review = (await Review.findById(reviewId).populate(
+    'customer',
+    'fullName'
+  )) as ReviewDocument | null;
 
   if (!review) {
     throw ApiError.notFound('Review not found');

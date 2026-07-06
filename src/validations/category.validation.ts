@@ -1,5 +1,7 @@
 import Joi from 'joi';
 
+const objectId = Joi.string().hex().length(24);
+
 export const createCategorySchema = Joi.object({
   name: Joi.string().trim().min(2).max(100).required(),
   description: Joi.string().trim().max(500).optional().allow(''),
@@ -17,5 +19,5 @@ export const updateCategorySchema = Joi.object({
   });
 
 export const categoryIdParamSchema = Joi.object({
-  id: Joi.string().required(),
+  id: objectId.required(),
 });

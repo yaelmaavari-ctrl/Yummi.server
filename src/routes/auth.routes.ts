@@ -14,6 +14,7 @@ const router = Router();
 router.post('/register', validate(registerSchema), authController.register);
 router.post('/login', validate(loginSchema), authController.login);
 router.get('/me', authenticate, authController.getMe);
+router.patch('/me', authenticate, validate(updateProfileSchema), authController.updateProfile);
 router.patch(
   '/me',
   authenticate,

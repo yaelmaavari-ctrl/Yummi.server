@@ -1,6 +1,8 @@
 import Joi from 'joi';
 import { IngredientStatus } from '../types';
 
+const objectId = Joi.string().hex().length(24);
+
 export const createIngredientSchema = Joi.object({
   name: Joi.string().trim().min(2).max(100).required(),
   status: Joi.string()
@@ -19,8 +21,12 @@ export const setStatusSchema = Joi.object({
     .required(),
 });
 
+export const reportShortageSchema = Joi.object({
+  message: Joi.string().trim().min(3).max(500).optional(),
+});
+
 export const ingredientIdParamSchema = Joi.object({
-  id: Joi.string().required(),
+  id: objectId.required(),
 });
 
 export const reportShortageSchema = Joi.object({

@@ -8,6 +8,8 @@ import {
   updateIngredientSchema,
   setStatusSchema,
   ingredientIdParamSchema,
+  reportShortageSchema,
+  replenishSchema,
 } from '../validations/ingredient.validation';
 import { UserRole } from '../types';
 
@@ -41,6 +43,22 @@ router.patch(
   validate(ingredientIdParamSchema, 'params'),
   validate(setStatusSchema),
   ingredientController.setStatus
+);
+
+router.post(
+  '/:id/report-shortage',
+  authorize(...kitchenRoles),
+  validate(ingredientIdParamSchema, 'params'),
+  validate(reportShortageSchema),
+  ingredientController.reportShortage
+);
+
+router.post(
+  '/:id/replenish',
+  authorize(UserRole.ADMIN),
+  validate(ingredientIdParamSchema, 'params'),
+  validate(replenishSchema),
+  ingredientController.replenish
 );
 
 router.patch(

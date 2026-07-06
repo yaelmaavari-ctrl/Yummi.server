@@ -7,6 +7,7 @@ export interface CreateNotificationInput {
   type: string;
   message: string;
   orderId?: string;
+  data?: Record<string, unknown>;
 }
 
 /**
@@ -18,11 +19,16 @@ export const notificationService = {
    * Creates a notification, persists it, and emits 'notification:new' to the recipient.
    */
   async create(input: CreateNotificationInput): Promise<INotification> {
+    const data: Record<string, unknown> = { ...(input.data ?? {}) };
+    if (input.orderId) {
+      data['orderId'] = input.orderId;
+    }
+
     const notification = await Notification.create({
       recipient: input.recipientId,
       type: input.type,
       message: input.message,
-      data: input.orderId ? { orderId: input.orderId } : {},
+      data,
       isRead: false,
     });
 
@@ -58,5 +64,29 @@ export const notificationService = {
     }
 
     return notification;
+  },
+
+  /**
+   * Marks kitchen-issue notifications for an ingredient as read (after replenishment).
+   */
+  async dismissKitchenIssueForIngredient(
+    adminId: string,
+    ingredientId: string,
+    notificationId?: string
+  ): Promise<void> {
+    const filters: Record<string, unknown>[] = [
+      {
+        recipient: adminId,
+        type: 'KITCHEN_ISSUE_REPORTED',
+        'data.ingredientId': ingredientId,
+        isRead: false,
+      },
+    ];
+
+    if (notificationId) {
+      filters.push({ _id: notificationId, recipient: adminId });
+    }
+
+    await Notification.updateMany({ $or: filters }, { isRead: true });
   },
 };

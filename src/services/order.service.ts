@@ -246,11 +246,11 @@ export const orderService = {
     const userRoom = Rooms.user((order.userId as Types.ObjectId).toString());
 
     // Emit the canonical status-specific event.
-    // ORDER_READY also goes to the delivery room so workers see new orders in real time.
+    // READY and COMPLETED also go to the delivery room so workers see queue changes in real time.
     const socketEvent = STATUS_TO_SOCKET_EVENT[status];
     if (socketEvent) {
       const rooms = [userRoom, Rooms.kitchen(), Rooms.admin()];
-      if (status === OrderStatus.READY) {
+      if (status === OrderStatus.READY || status === OrderStatus.COMPLETED) {
         rooms.push(Rooms.delivery());
       }
       emitEvent(socketEvent, order, rooms);

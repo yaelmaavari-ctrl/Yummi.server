@@ -11,6 +11,7 @@ import cartRoutes from './cart.routes';
 import orderRoutes from './order.routes';
 import notificationRoutes from './notification.routes';
 import statsRoutes from './stats.routes';
+import agentRoutes from './agent.routes';
 
 const router = Router();
 
@@ -29,5 +30,8 @@ router.use('/cart', cartRoutes);
 router.use('/orders', orderRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/stats', statsRoutes);
+
+// AI Assistant (read-only function-calling agent)
+router.use('/agent', agentRoutes);
 
 export default router;

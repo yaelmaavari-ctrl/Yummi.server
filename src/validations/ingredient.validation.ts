@@ -22,3 +22,11 @@ export const setStatusSchema = Joi.object({
 export const ingredientIdParamSchema = Joi.object({
   id: Joi.string().required(),
 });
+
+export const reportShortageSchema = Joi.object({
+  message: Joi.string().trim().max(500).optional().allow(''),
+});
+
+export const replenishSchema = Joi.object({
+  notificationId: Joi.string().optional(),
+});

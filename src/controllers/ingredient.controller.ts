@@ -47,6 +47,31 @@ const remove = asyncHandler(async (req: Request, res: Response) => {
   res.status(200).json({ success: true, data: { ingredient } });
 });
 
+const reportShortage = asyncHandler(async (req: Request, res: Response) => {
+  const ingredient = await ingredientService.reportShortage(
+    req.params['id'] as string,
+    req.user!.userId,
+    req.body.message as string | undefined
+  );
+  res.status(200).json({ success: true, data: { ingredient } });
+});
+
+const replenish = asyncHandler(async (req: Request, res: Response) => {
+  const ingredient = await ingredientService.replenish(
+    req.params['id'] as string,
+    req.user!.userId,
+    req.body.notificationId as string | undefined
+  );
+
+  emitEvent(SocketEvents.INGREDIENT_AVAILABILITY_CHANGED, {
+    ingredientId: ingredient.id,
+    name: ingredient.name,
+    status: ingredient.status,
+  });
+
+  res.status(200).json({ success: true, data: { ingredient } });
+});
+
 export const ingredientController = {
   list,
   getById,
@@ -54,4 +79,6 @@ export const ingredientController = {
   update,
   setStatus,
   remove,
+  reportShortage,
+  replenish,
 };

@@ -21,8 +21,14 @@ const getById = asyncHandler(async (req: Request, res: Response) => {
   res.status(200).json({ success: true, data: { review } });
 });
 
+const remove = asyncHandler(async (req: Request, res: Response) => {
+  await reviewService.remove(req.params['id'] as string);
+  res.status(200).json({ success: true, data: { message: 'Review deleted' } });
+});
+
 export const reviewController = {
   create,
   list,
   getById,
+  remove,
 };

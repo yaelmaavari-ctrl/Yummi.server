@@ -1,7 +1,10 @@
 import { IIngredient, Ingredient } from '../models/ingredient.model';
 import { Product } from '../models/product.model';
-import { IngredientStatus } from '../types';
+import { User } from '../models/user.model';
+import { IngredientStatus, UserRole } from '../types';
 import { ApiError } from '../utils/ApiError';
+import { emitEvent, Rooms, SocketEvents } from '../sockets/events';
+import { notificationService } from './notification.service';
 
 export interface PublicIngredient {
   id: string;
@@ -113,6 +116,58 @@ async function remove(id: string): Promise<PublicIngredient> {
   return toPublicIngredient(ingredient);
 }
 
+async function reportShortage(
+  id: string,
+  reporterId: string,
+  message?: string
+): Promise<PublicIngredient> {
+  const ingredient = await getExistingById(id);
+  const issueMessage = message?.trim() || `"${ingredient.name}" is missing or running low.`;
+
+  const admins = await User.find({ roles: UserRole.ADMIN, isActive: true }).select('_id');
+
+  await Promise.all(
+    admins.map((admin) =>
+      notificationService.create({
+        recipientId: admin._id.toString(),
+        type: 'KITCHEN_ISSUE_REPORTED',
+        message: `Kitchen shortage: ${issueMessage}`,
+        data: {
+          ingredientId: ingredient._id.toString(),
+          ingredientName: ingredient.name,
+        },
+      })
+    )
+  );
+
+  emitEvent(
+    SocketEvents.KITCHEN_ISSUE_REPORTED,
+    {
+      ingredientId: ingredient._id.toString(),
+      ingredientName: ingredient.name,
+      message: issueMessage,
+      reportedBy: reporterId,
+    },
+    Rooms.admin()
+  );
+
+  return toPublicIngredient(ingredient);
+}
+
+async function replenish(
+  id: string,
+  adminId: string,
+  notificationId?: string
+): Promise<PublicIngredient> {
+  const ingredient = await getExistingById(id);
+  ingredient.status = IngredientStatus.AVAILABLE;
+  await ingredient.save();
+
+  await notificationService.dismissKitchenIssueForIngredient(adminId, id, notificationId);
+
+  return toPublicIngredient(ingredient);
+}
+
 export const ingredientService = {
   list,
   getById,
@@ -120,4 +175,6 @@ export const ingredientService = {
   update,
   setStatus,
   remove,
+  reportShortage,
+  replenish,
 };

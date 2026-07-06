@@ -172,11 +172,9 @@ async function updateProfile(userId: string, input: UpdateProfileInput): Promise
   if (input.fullName !== undefined) {
     user.fullName = input.fullName;
   }
-
   if (input.phone !== undefined) {
     user.phone = input.phone;
   }
-
   if (input.defaultAddress !== undefined) {
     user.defaultAddress = input.defaultAddress ?? undefined;
   }

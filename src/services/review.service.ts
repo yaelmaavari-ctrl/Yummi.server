@@ -119,17 +119,28 @@ async function getById(
     throw ApiError.notFound('Review not found');
   }
 
-  const customerId = resolveCustomerId(review.customer);
-
-  if (requesterRole !== UserRole.ADMIN && customerId !== requesterId) {
+  if (
+    requesterRole !== UserRole.ADMIN &&
+    requesterRole !== UserRole.KITCHEN &&
+    review.customer.toString() !== requesterId
+  ) {
     throw ApiError.forbidden('You do not have permission to view this review');
   }
 
   return toPublicReview(review);
 }
 
+async function remove(reviewId: string): Promise<void> {
+  const review = await Review.findByIdAndDelete(reviewId);
+
+  if (!review) {
+    throw ApiError.notFound('Review not found');
+  }
+}
+
 export const reviewService = {
   create,
   list,
   getById,
+  remove,
 };

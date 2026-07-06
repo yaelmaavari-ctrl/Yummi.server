@@ -9,14 +9,27 @@ export const placeOrderSchema = Joi.object({
   orderType: Joi.string()
     .valid(...Object.values(OrderType))
     .default(OrderType.PICKUP),
+  useDefaultAddress: Joi.when('orderType', {
+    is: OrderType.DELIVERY,
+    then: Joi.boolean().default(false),
+    otherwise: Joi.forbidden(),
+  }),
   deliveryCity: Joi.when('orderType', {
     is: OrderType.DELIVERY,
-    then: Joi.string().trim().min(2).max(100).required(),
+    then: Joi.when('useDefaultAddress', {
+      is: true,
+      then: Joi.forbidden(),
+      otherwise: Joi.string().trim().min(2).max(100).required(),
+    }),
     otherwise: Joi.forbidden(),
   }),
   deliveryAddress: Joi.when('orderType', {
     is: OrderType.DELIVERY,
-    then: Joi.string().trim().min(2).max(500).required(),
+    then: Joi.when('useDefaultAddress', {
+      is: true,
+      then: Joi.forbidden(),
+      otherwise: Joi.string().trim().min(2).max(500).required(),
+    }),
     otherwise: Joi.forbidden(),
   }),
 });

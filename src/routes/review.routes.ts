@@ -17,13 +17,24 @@ router.post(
   reviewController.create
 );
 
-router.get('/', reviewController.list);
+router.get(
+  '/',
+  authorize(UserRole.ADMIN, UserRole.KITCHEN, UserRole.CUSTOMER),
+  reviewController.list
+);
 
 router.get(
   '/:id',
-  authorize(UserRole.ADMIN, UserRole.CUSTOMER),
+  authorize(UserRole.ADMIN, UserRole.KITCHEN, UserRole.CUSTOMER),
   validate(reviewIdParamSchema, 'params'),
   reviewController.getById
+);
+
+router.delete(
+  '/:id',
+  authorize(UserRole.ADMIN),
+  validate(reviewIdParamSchema, 'params'),
+  reviewController.remove
 );
 
 export default router;

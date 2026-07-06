@@ -32,5 +32,5 @@ export const switchRoleSchema = Joi.object({
 export const updateProfileSchema = Joi.object({
   fullName: Joi.string().trim().min(2).max(100).optional(),
   phone: Joi.string().trim().min(7).max(20).optional(),
-  defaultAddress: addressSchema.optional().allow(null),
+  defaultAddress: Joi.alternatives().try(addressSchema, Joi.valid(null)).optional(),
 }).min(1);

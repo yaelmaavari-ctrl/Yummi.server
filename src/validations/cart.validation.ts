@@ -24,8 +24,6 @@ export const updateItemSchema = Joi.object({
 
 /** Query params for DELETE — disambiguates lines with the same productId. */
 export const removeItemQuerySchema = Joi.object({
-  selectedExtras: Joi.alternatives()
-    .try(Joi.array().items(objectId).unique(), objectId)
-    .optional()
-    .default([]),
+  /** Express sends a single ?selectedExtras=id as a string, not an array. */
+  selectedExtras: Joi.array().items(objectId).unique().single().default([]),
 });

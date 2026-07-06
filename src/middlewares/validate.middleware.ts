@@ -5,6 +5,23 @@ import { ApiError } from '../utils/ApiError';
 type RequestPart = 'body' | 'query' | 'params';
 
 /**
+ * Express 5 makes req.body, req.query, and req.params read-only, so validated
+ * values are merged onto the existing object instead of replacing it.
+ */
+function applyValidatedPart(req: Request, part: RequestPart, value: unknown): void {
+  const target = req[part] as Record<string, unknown>;
+  const source = (value ?? {}) as Record<string, unknown>;
+
+  for (const key of Object.keys(target)) {
+    if (!(key in source)) {
+      delete target[key];
+    }
+  }
+
+  Object.assign(target, source);
+}
+
+/**
  * Builds a middleware that validates a part of the request against a Joi
  * schema. On success the parsed/validated value replaces the original.
  */
@@ -20,17 +37,7 @@ export function validate(schema: ObjectSchema, part: RequestPart = 'body') {
       return next(ApiError.badRequest('Validation failed', details));
     }
 
-    // Express 5 defines req.query as a read-only getter; use defineProperty to replace it.
-    if (part === 'query') {
-      Object.defineProperty(req, 'query', {
-        value,
-        writable: true,
-        configurable: true,
-        enumerable: true,
-      });
-    } else {
-      req[part] = value;
-    }
+    applyValidatedPart(req, part, value);
     return next();
   };
 }

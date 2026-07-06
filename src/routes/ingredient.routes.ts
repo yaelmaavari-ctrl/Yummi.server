@@ -9,6 +9,8 @@ import {
   setStatusSchema,
   reportShortageSchema,
   ingredientIdParamSchema,
+  reportShortageSchema,
+  replenishSchema,
 } from '../validations/ingredient.validation';
 import { UserRole } from '../types';
 
@@ -49,6 +51,14 @@ router.post(
   validate(ingredientIdParamSchema, 'params'),
   validate(reportShortageSchema),
   ingredientController.reportShortage
+);
+
+router.post(
+  '/:id/replenish',
+  authorize(UserRole.ADMIN),
+  validate(ingredientIdParamSchema, 'params'),
+  validate(replenishSchema),
+  ingredientController.replenish
 );
 
 router.patch(

@@ -17,8 +17,9 @@ export interface UpdateCartItemInput {
 }
 
 /** Normalizes add-on ids for stable comparison (unique + sorted). */
-function normalizeExtraIds(extraIds: string[]): string[] {
-  return [...new Set(extraIds.map((id) => id.trim()))].sort();
+function normalizeExtraIds(extraIds: string | string[]): string[] {
+  const ids = Array.isArray(extraIds) ? extraIds : extraIds ? [extraIds] : [];
+  return [...new Set(ids.map((id) => id.trim()))].sort();
 }
 
 function extrasKey(extraIds: Types.ObjectId[] | string[]): string {
@@ -29,9 +30,9 @@ function extrasKey(extraIds: Types.ObjectId[] | string[]): string {
 function findCartItemIndex(
   items: ICartItem[],
   productId: string,
-  selectedExtraIds: string[]
+  selectedExtraIds: string | string[]
 ): number {
-  const key = extrasKey(selectedExtraIds);
+  const key = extrasKey(normalizeExtraIds(selectedExtraIds));
   return items.findIndex(
     (item) => item.productId.toString() === productId && extrasKey(item.selectedExtras) === key
   );
